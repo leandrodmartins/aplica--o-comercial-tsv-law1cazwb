@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { usuarioService, gerarSenhaTemporaria } from '@/services/usuarios'
+import { usuarioService, DadosUsuario } from '@/services/usuarios'
 import { AppUser, ROTULO_PAPEL, UserRole } from '@/types/tsv'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,11 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage, extractFieldErrors } from '@/lib/pocketbase/errors'
-import { KeyRound, Plus, ShieldCheck, Trash2, UserCog } from 'lucide-react'
+import { KeyRound, Pencil, Plus, ShieldCheck, Trash2, UserCog } from 'lucide-react'
 
 const COR_POVEL: Record<UserRole, string> = {
   admin: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
@@ -34,23 +33,42 @@ const COR_POVEL: Record<UserRole, string> = {
   vendedor: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
 }
 
+interface FormularioUsuario {
+  name: string
+  email: string
+  role: UserRole
+  distribuidor: string
+  cargo: string
+}
+
+const FORMULARIO_VAZIO: FormularioUsuario = {
+  name: '',
+  email: '',
+  role: 'vendedor',
+  distribuidor: '',
+  cargo: '',
+}
+
 export default function Equipe() {
   const { user } = useAuth()
   const { toast } = useToast()
   const [usuarios, setUsuarios] = useState<AppUser[]>([])
   const [carregando, setCarregando] = useState(true)
-  const [dialogoAberto, setDialogoAberto] = useState(false)
   const [salvando, setSalvando] = useState(false)
+  const [enviandoSenha, setEnviandoSenha] = useState<string | null>(null)
   const [erros, setErros] = useState<Record<string, string>>({})
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    role: 'vendedor' as UserRole,
-    distribuidor: '',
-    cargo: '',
-  })
+
+  // Dialog de criar/editar
+  const [dialogoAberto, setDialogoAberto] = useState(false)
+  const [editando, setEditando] = useState<AppUser | null>(null)
+  const [form, setForm] = useState<FormularioUsuario>(FORMULARIO_VAZIO)
+
+  // Dialog de confirmação de envio de link de senha
+  const [senhaDialogo, setSenhaDialogo] = useState<AppUser | null>(null)
+  const [senhaEnviada, setSenhaEnviada] = useState(false)
 
   const podeGerenciar = user?.role === 'admin' || user?.role === 'tsv'
+  const souAdmin = user?.role === 'admin'
 
   const carregar = async () => {
     setCarregando(true)
@@ -73,34 +91,63 @@ export default function Equipe() {
   }, [podeGerenciar])
 
   const aplicarFiltro = useMemo(() => {
-    // TSV (não admin) vê a própria equipe; admin vê todos.
+    // Admin vê todos os usuários; TSV vê a própria equipe (mesmo distribuidor).
     if (user?.role === 'admin' || !user?.distribuidor) return usuarios
     return usuarios.filter((u) => u.distribuidor === user.distribuidor)
   }, [usuarios, user])
 
-  const criarUsuario = async () => {
+  const abrirCriar = () => {
+    setEditando(null)
+    setForm(FORMULARIO_VAZIO)
+    setErros({})
+    setDialogoAberto(true)
+  }
+
+  const abrirEditar = (u: AppUser) => {
+    setEditando(u)
+    setForm({
+      name: u.name || '',
+      email: u.email || '',
+      role: u.role,
+      distribuidor: u.distribuidor || '',
+      cargo: u.cargo || '',
+    })
+    setErros({})
+    setDialogoAberto(true)
+  }
+
+  const salvarUsuario = async () => {
     setSalvando(true)
     setErros({})
     try {
-      const { usuario, senhaInicial } = await usuarioService.criar({
-        email: form.email,
-        name: form.name,
+      const dados: DadosUsuario = {
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
         role: form.role,
-        distribuidor: form.role === 'vendedor' ? form.distribuidor : form.distribuidor,
-        cargo: form.cargo,
-      })
-      setDialogoAberto(false)
-      setForm({ name: '', email: '', role: 'vendedor', distribuidor: '', cargo: '' })
-      toast({
-        title: 'Usuário criado',
-        description: `E-mail: ${usuario.email} • Senha inicial: ${senhaInicial} — repasse e peça a troca no primeiro acesso.`,
-        duration: 30000,
-      })
+        distribuidor: form.distribuidor.trim(),
+        cargo: form.cargo.trim(),
+      }
+      if (editando) {
+        const atualizado = await usuarioService.atualizar(editando.id, dados)
+        toast({
+          title: 'Usuário atualizado',
+          description: `${atualizado.name || atualizado.email} foi atualizado com sucesso.`,
+        })
+      } else {
+        const criado = await usuarioService.criar(dados)
+        setDialogoAberto(false)
+        toast({
+          title: 'Usuário criado',
+          description: `${criado.email} foi criado. Use "Senha" para enviar o e-mail com o link de primeiro acesso.`,
+          duration: 10000,
+        })
+      }
       await carregar()
+      if (editando) setDialogoAberto(false)
     } catch (err) {
       setErros(extractFieldErrors(err))
       toast({
-        title: 'Falha ao criar usuário',
+        title: editando ? 'Falha ao salvar usuário' : 'Falha ao criar usuário',
         description: getErrorMessage(err),
         variant: 'destructive',
       })
@@ -109,21 +156,23 @@ export default function Equipe() {
     }
   }
 
-  const redefinirSenha = async (u: AppUser) => {
-    const nova = gerarSenhaTemporaria()
+  const enviarLinkSenha = async (u: AppUser) => {
+    setEnviandoSenha(u.id)
     try {
-      await usuarioService.redefinirSenha(u.id, nova)
+      await usuarioService.enviarResetSenha(u.email)
+      setSenhaEnviada(true)
       toast({
-        title: 'Senha redefinida',
-        description: `Nova senha temporária de ${u.email}: ${nova} — peça a troca no primeiro acesso.`,
-        duration: 30000,
+        title: 'E-mail enviado',
+        description: `Link de definição de senha enviado para ${u.email}.`,
       })
     } catch (err) {
       toast({
-        title: 'Falha ao redefinir senha',
+        title: 'Falha ao enviar e-mail',
         description: getErrorMessage(err),
         variant: 'destructive',
       })
+    } finally {
+      setEnviandoSenha(null)
     }
   }
 
@@ -168,7 +217,7 @@ export default function Equipe() {
             base do isolamento de dados por distribuidor.
           </p>
         </div>
-        <Button onClick={() => setDialogoAberto(true)}>
+        <Button onClick={abrirCriar}>
           <Plus className="mr-2 h-4 w-4" /> Novo usuário
         </Button>
       </div>
@@ -219,10 +268,22 @@ export default function Equipe() {
                       <td className="py-2 pr-4">{u.cargo || '—'}</td>
                       <td className="py-2">
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => redefinirSenha(u)}>
-                            <KeyRound className="mr-1 h-3.5 w-3.5" /> Senha
+                          <Button variant="outline" size="sm" onClick={() => abrirEditar(u)}>
+                            <Pencil className="mr-1 h-3.5 w-3.5" /> Editar
                           </Button>
-                          {u.id !== user?.id && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={enviandoSenha === u.id}
+                            onClick={() => {
+                              setSenhaDialogo(u)
+                              setSenhaEnviada(false)
+                            }}
+                          >
+                            <KeyRound className="mr-1 h-3.5 w-3.5" />
+                            {enviandoSenha === u.id ? 'Enviando…' : 'Senha'}
+                          </Button>
+                          {souAdmin && u.id !== user?.id && (
                             <Button variant="ghost" size="sm" onClick={() => removerUsuario(u)}>
                               <Trash2 className="mr-1 h-3.5 w-3.5" /> Remover
                             </Button>
@@ -238,13 +299,15 @@ export default function Equipe() {
         </CardContent>
       </Card>
 
+      {/* ---- Dialog: criar ou editar usuário ---- */}
       <Dialog open={dialogoAberto} onOpenChange={setDialogoAberto}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Novo usuário</DialogTitle>
+            <DialogTitle>{editando ? 'Editar usuário' : 'Novo usuário'}</DialogTitle>
             <DialogDescription>
-              Uma senha inicial é gerada e exibida após a criação — repasse ao usuário e peça a
-              troca no primeiro acesso.
+              {editando
+                ? 'Altere os dados do usuário. O e-mail recebe um novo link de confirmação quando mudado.'
+                : 'Após criar, use a ação "Senha" para enviar por e-mail o link de primeiro acesso — não há repasse manual de senha.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -327,10 +390,44 @@ export default function Equipe() {
             <Button variant="outline" onClick={() => setDialogoAberto(false)}>
               Cancelar
             </Button>
-            <Button onClick={criarUsuario} disabled={salvando || !form.email || !form.name}>
-              {salvando ? 'Criando…' : 'Criar usuário'}
+            <Button onClick={salvarUsuario} disabled={salvando || !form.email || !form.name}>
+              {salvando ? 'Salvando…' : editando ? 'Salvar alterações' : 'Criar usuário'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ---- Dialog: enviar link de definição de senha por e-mail ---- */}
+      <Dialog open={!!senhaDialogo} onOpenChange={(aberto) => !aberto && setSenhaDialogo(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar link de senha</DialogTitle>
+            <DialogDescription>
+              {senhaEnviada
+                ? 'Pronto! O e-mail foi enviado.'
+                : `Enviaremos para ${senhaDialogo?.email || ''} um e-mail com um link seguro para o próprio usuário definir a senha. Nenhuma senha é exibida ou repassada manualmente.`}
+            </DialogDescription>
+          </DialogHeader>
+          {!senhaEnviada && (
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSenhaDialogo(null)}>
+                Cancelar
+              </Button>
+              <Button
+                disabled={enviandoSenha !== null}
+                onClick={() => senhaDialogo && enviarLinkSenha(senhaDialogo)}
+              >
+                {enviandoSenha ? 'Enviando…' : 'Enviar e-mail'}
+              </Button>
+            </DialogFooter>
+          )}
+          {senhaEnviada && (
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSenhaDialogo(null)}>
+                Fechar
+              </Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </div>

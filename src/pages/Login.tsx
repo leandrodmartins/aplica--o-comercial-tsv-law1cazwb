@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { usuarioService } from '@/services/usuarios'
 import {
   Card,
   CardContent,
@@ -15,12 +16,19 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ShieldCheck, Lock, Mail, ArrowRight, UserCheck, CheckCircle2 } from 'lucide-react'
 import ThemeToggle from '@/components/ThemeToggle'
+import { getErrorMessage } from '@/lib/pocketbase/errors'
 
+/** Tela pública de login (e fluxo "Esqueci minha senha" integrado). */
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Estado do fluxo "Esqueci minha senha"
+  const [mostrarRecuperacao, setMostrarRecuperacao] = useState(false)
+  const [recuperacaoEnviada, setRecuperacaoEnviada] = useState(false)
+  const [enviandoReset, setEnviandoReset] = useState(false)
 
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -41,9 +49,28 @@ export default function Login() {
       await login(email, password)
       navigate(from, { replace: true })
     } catch (err: any) {
-      setError(err?.message || 'Falha ao autenticar. Verifique o e-mail e a senha.')
+      setError(getErrorMessage(err) || 'Falha ao autenticar. Verifique o e-mail e a senha.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const enviarReset = async () => {
+    if (!email) {
+      setError('Informe o e-mail cadastrado para receber o link de redefinição.')
+      return
+    }
+    try {
+      setEnviandoReset(true)
+      setError(null)
+      await usuarioService.enviarResetSenha(email.trim().toLowerCase())
+      setRecuperacaoEnviada(true)
+    } catch (err) {
+      // Por segurança o PocketBase responde 400 para e-mail inexistente —
+      // tratamos como "enviado" para não revelar quais e-mails existem.
+      setRecuperacaoEnviada(true)
+    } finally {
+      setEnviandoReset(false)
     }
   }
 
@@ -88,111 +115,229 @@ export default function Login() {
         </div>
 
         <Card className="border-slate-800 bg-slate-900/80 backdrop-blur-xl shadow-2xl text-slate-100">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-xl text-white">Acesse sua conta</CardTitle>
-            <CardDescription className="text-slate-400">
-              Entre com suas credenciais de distribuidor ou TSV Grupo
-            </CardDescription>
-          </CardHeader>
-
-          <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-4">
-              {error && (
-                <Alert variant="destructive" className="bg-red-950/50 border-red-800 text-red-200">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-300">
-                  E-mail corporativo
-                </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="seu.nome@distribuidor.com.br"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-9 bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 focus:border-blue-500"
-                    disabled={loading}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-slate-300">
-                  Senha
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-9 bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 focus:border-blue-500"
-                    disabled={loading}
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Botões de acesso rápido para testes de perfil */}
-              <div className="pt-2">
-                <p className="text-xs text-slate-400 font-medium mb-2 flex items-center gap-1.5">
-                  <UserCheck className="w-3.5 h-3.5 text-amber-400" /> Perfis de demonstração do
-                  piloto:
-                </p>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => handleFillDemo('tsv')}
-                    className="flex flex-col items-start p-2 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition text-left"
-                  >
-                    <span className="font-semibold text-blue-400 flex items-center gap-1">
-                      TSV Gestor <CheckCircle2 className="w-3 h-3 text-blue-400" />
-                    </span>
-                    <span className="text-[11px] text-slate-400 truncate w-full">
-                      Vê todas as oportunidades
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleFillDemo('vendedor')}
-                    className="flex flex-col items-start p-2 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition text-left"
-                  >
-                    <span className="font-semibold text-amber-400 flex items-center gap-1">
-                      Vendedor <CheckCircle2 className="w-3 h-3 text-amber-400" />
-                    </span>
-                    <span className="text-[11px] text-slate-400 truncate w-full">
-                      Vê apenas os seus leads
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </CardContent>
-
-            <CardFooter className="pt-2">
-              <Button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 shadow-lg shadow-blue-600/20"
-                disabled={loading}
-              >
-                {loading ? (
-                  'Acessando...'
+          {mostrarRecuperacao ? (
+            <>
+              <CardHeader className="space-y-1">
+                <CardTitle className="text-xl text-white">Recuperar senha</CardTitle>
+                <CardDescription className="text-slate-400">
+                  Informe o e-mail cadastrado e enviaremos um link para você definir uma nova senha.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {recuperacaoEnviada ? (
+                  <Alert className="bg-green-950/50 border-green-800 text-green-200">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <AlertDescription>
+                      Se este e-mail estiver cadastrado, você receberá um link de redefinição em
+                      alguns minutos. Verifique também a caixa de spam.
+                    </AlertDescription>
+                  </Alert>
                 ) : (
-                  <span className="flex items-center justify-center gap-2">
-                    Entrar na Plataforma <ArrowRight className="w-4 h-4" />
-                  </span>
+                  <>
+                    {error && (
+                      <Alert
+                        variant="destructive"
+                        className="bg-red-950/50 border-red-800 text-red-200"
+                      >
+                        <AlertDescription>{error}</AlertDescription>
+                      </Alert>
+                    )}
+                    <div className="space-y-2">
+                      <Label htmlFor="email-recuperacao" className="text-slate-300">
+                        E-mail corporativo
+                      </Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+                        <Input
+                          id="email-recuperacao"
+                          type="email"
+                          placeholder="seu.nome@distribuidor.com.br"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="pl-9 bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 focus:border-blue-500"
+                          disabled={enviandoReset}
+                        />
+                      </div>
+                    </div>
+                  </>
                 )}
-              </Button>
-            </CardFooter>
-          </form>
+              </CardContent>
+              <CardFooter className="flex flex-col gap-2">
+                {recuperacaoEnviada ? (
+                  <Button
+                    variant="outline"
+                    className="w-full border-slate-700 text-slate-200 hover:bg-slate-800"
+                    onClick={() => {
+                      setMostrarRecuperacao(false)
+                      setRecuperacaoEnviada(false)
+                      setError(null)
+                    }}
+                  >
+                    Voltar ao login
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 shadow-lg shadow-blue-600/20"
+                      disabled={enviandoReset || !email}
+                      onClick={enviarReset}
+                    >
+                      {enviandoReset ? (
+                        'Enviando…'
+                      ) : (
+                        <span className="flex items-center justify-center gap-2">
+                          Enviar link de redefinição <ArrowRight className="w-4 h-4" />
+                        </span>
+                      )}
+                    </Button>
+                    <button
+                      type="button"
+                      className="text-sm text-slate-400 hover:text-slate-200 underline-offset-4 hover:underline"
+                      onClick={() => {
+                        setMostrarRecuperacao(false)
+                        setError(null)
+                      }}
+                    >
+                      Voltar ao login
+                    </button>
+                  </>
+                )}
+              </CardFooter>
+            </>
+          ) : (
+            <>
+              <CardHeader className="space-y-1">
+                <CardTitle className="text-xl text-white">Acesse sua conta</CardTitle>
+                <CardDescription className="text-slate-400">
+                  Entre com suas credenciais de distribuidor ou TSV Grupo
+                </CardDescription>
+              </CardHeader>
+
+              <form onSubmit={handleSubmit}>
+                <CardContent className="space-y-4">
+                  {error && (
+                    <Alert
+                      variant="destructive"
+                      className="bg-red-950/50 border-red-800 text-red-200"
+                    >
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-slate-300">
+                      E-mail corporativo
+                    </Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="seu.nome@distribuidor.com.br"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="pl-9 bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 focus:border-blue-500"
+                        disabled={loading}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="password" className="text-slate-300">
+                        Senha
+                      </Label>
+                      <button
+                        type="button"
+                        className="text-xs text-blue-400 hover:text-blue-300 underline-offset-4 hover:underline"
+                        onClick={() => {
+                          setMostrarRecuperacao(true)
+                          setError(null)
+                        }}
+                      >
+                        Esqueci minha senha
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+                      <Input
+                        id="password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="pl-9 bg-slate-950/60 border-slate-800 text-white placeholder:text-slate-600 focus:border-blue-500"
+                        disabled={loading}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Botões de acesso rápido para testes de perfil */}
+                  <div className="pt-2">
+                    <p className="text-xs text-slate-400 font-medium mb-2 flex items-center gap-1.5">
+                      <UserCheck className="w-3.5 h-3.5 text-amber-400" /> Perfis de demonstração do
+                      piloto:
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => handleFillDemo('tsv')}
+                        className="flex flex-col items-start p-2 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition text-left"
+                      >
+                        <span className="font-semibold text-blue-400 flex items-center gap-1">
+                          TSV Gestor <CheckCircle2 className="w-3 h-3 text-blue-400" />
+                        </span>
+                        <span className="text-[11px] text-slate-400 truncate w-full">
+                          Vê todas as oportunidades
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleFillDemo('vendedor')}
+                        className="flex flex-col items-start p-2 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition text-left"
+                      >
+                        <span className="font-semibold text-amber-400 flex items-center gap-1">
+                          Vendedor <CheckCircle2 className="w-3 h-3 text-amber-400" />
+                        </span>
+                        <span className="text-[11px] text-slate-400 truncate w-full">
+                          Vê apenas os seus leads
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </CardContent>
+
+                <CardFooter className="pt-2 flex-col gap-3">
+                  <Button
+                    type="submit"
+                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 shadow-lg shadow-blue-600/20"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      'Acessando...'
+                    ) : (
+                      <span className="flex items-center justify-center gap-2">
+                        Entrar na Plataforma <ArrowRight className="w-4 h-4" />
+                      </span>
+                    )}
+                  </Button>
+                  <button
+                    type="button"
+                    className="text-sm text-slate-400 hover:text-slate-200 underline-offset-4 hover:underline"
+                    onClick={() => {
+                      setMostrarRecuperacao(true)
+                      setError(null)
+                    }}
+                  >
+                    Esqueci minha senha
+                  </button>
+                </CardFooter>
+              </form>
+            </>
+          )}
         </Card>
 
         {/* Footer info */}

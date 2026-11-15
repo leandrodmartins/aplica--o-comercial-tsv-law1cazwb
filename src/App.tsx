@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from '@/context/AuthContext'
 import ProtectedLayout from '@/components/ProtectedLayout'
 
 import Login from '@/pages/Login'
+import RedefinirSenha from '@/pages/RedefinirSenha'
 import Painel from '@/pages/Painel'
 import NovaOportunidade from '@/pages/NovaOportunidade'
 import PacoteDetalhes from '@/pages/PacoteDetalhes'
@@ -34,6 +35,9 @@ const App = () => (
         <Routes>
           {/* Rota pública de Login */}
           <Route path="/login" element={<Login />} />
+          {/* Rota pública aberta pelo link do e-mail de redefinição de senha */}
+          <Route path="/redefinir-senha/:token" element={<RedefinirSenha />} />
+          <Route path="/redefinir-senha" element={<RedefinirSenha />} />
 
           {/* Rotas protegidas dentro do layout comum com Navbar */}
           <Route element={<ProtectedLayout />}>

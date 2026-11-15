@@ -15,8 +15,17 @@ const mapear = (rec: any): AppUser => ({
   updated: rec.updated,
 })
 
+/** Dados usados tanto na criação quanto na edição de um usuário. */
+export interface DadosUsuario {
+  name: string
+  email: string
+  role: UserRole
+  distribuidor?: string
+  cargo?: string
+}
+
 export const usuarioService = {
-  /** Lista todos os usuários (somente admin/tsv; a regra da coleção permite ver todos autenticados). */
+  /** Lista todos os usuários (somente admin/tsv na prática; a regra da coleção permite ver todos autenticados). */
   async listar(): Promise<AppUser[]> {
     const recs = await pb.collection(COLECAO).getFullList({ sort: '-created' })
     return recs.map(mapear)
@@ -24,60 +33,50 @@ export const usuarioService = {
 
   /**
    * Cria um usuário com papel e distribuidor (somente admin/tsv, regra da coleção).
-   * A senha inicial é gerada pelo serviço e devolvida ao admin para repasse.
+   * A conta nasce com senha provisória (satisfaça o mínimo do PocketBase) e o
+   * admin já envia o link de "definir senha" pela própria tela da Equipe.
    */
-  async criar(dados: {
-    email: string
-    name: string
-    role: UserRole
-    distribuidor?: string
-    cargo?: string
-    senha?: string
-  }): Promise<{ usuario: AppUser; senhaInicial: string }> {
-    const senhaInicial = dados.senha || gerarSenha()
+  async criar(dados: DadosUsuario, senhaProvisoria?: string): Promise<AppUser> {
+    const senha = senhaProvisoria || 'Mudar@2026'
     const rec = await pb.collection(COLECAO).create({
       email: dados.email,
-      password: senhaInicial,
-      passwordConfirm: senhaInicial,
-      verified: true,
+      password: senha,
+      passwordConfirm: senha,
       name: dados.name,
       role: dados.role,
       distribuidor: dados.distribuidor || '',
       cargo: dados.cargo || '',
     })
-    return { usuario: mapear(rec), senhaInicial }
-  },
-
-  async atualizar(
-    id: string,
-    dados: Partial<{ name: string; role: UserRole; distribuidor: string; cargo: string }>,
-  ): Promise<AppUser> {
-    const rec = await pb.collection(COLECAO).update(id, dados)
     return mapear(rec)
   },
 
-  async redefinirSenha(id: string, novaSenha: string): Promise<void> {
-    await pb.collection(COLECAO).update(id, { password: novaSenha, passwordConfirm: novaSenha })
+  /** Edita um usuário existente (nome, e-mail, papel, distribuidor, cargo). */
+  async atualizar(id: string, dados: Partial<DadosUsuario>): Promise<AppUser> {
+    const corpo: Record<string, unknown> = {}
+    if (dados.name !== undefined) corpo.name = dados.name
+    if (dados.email !== undefined) corpo.email = dados.email
+    if (dados.role !== undefined) corpo.role = dados.role
+    if (dados.distribuidor !== undefined) corpo.distribuidor = dados.distribuidor || ''
+    if (dados.cargo !== undefined) corpo.cargo = dados.cargo || ''
+    const rec = await pb.collection(COLECAO).update(id, corpo)
+    return mapear(rec)
+  },
+
+  /**
+   * Envia por e-mail o link nativo de redefinição de senha do PocketBase
+   * (requestPasswordReset). O próprio usuário define a senha pelo link — sem
+   * repasse manual de senha pela tela.
+   */
+  async enviarResetSenha(email: string): Promise<void> {
+    await pb.collection(COLECAO).requestPasswordReset(email)
+  },
+
+  /** Confirma a redefinição com o token recebido por e-mail (página de redefinição). */
+  async confirmarResetSenha(token: string, novaSenha: string): Promise<void> {
+    await pb.collection(COLECAO).confirmPasswordReset(token, novaSenha, novaSenha)
   },
 
   async remover(id: string): Promise<void> {
     await pb.collection(COLECAO).delete(id)
   },
-}
-
-/** Gera uma senha inicial legível (sem caracteres ambíguos). */
-export function gerarSenha(): string {
-  const alfabeto = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789'
-  const especial = '!@#$%&*'
-  let senha = ''
-  for (let i = 0; i < 10; i++) {
-    senha += alfabeto.charAt(Math.floor(Math.random() * alfabeto.length))
-  }
-  senha += especial.charAt(Math.floor(Math.random() * especial.length))
-  senha += '1'
-  return senha
-}
-
-export function gerarSenhaTemporaria(): string {
-  return `Trocar@${gerarSenha()}`
 }

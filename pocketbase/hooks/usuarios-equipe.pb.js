@@ -51,9 +51,15 @@ routerAdd(
 
     // Duplicidade de e-mail com mensagem específica (o índice unique do
     // PocketBase devolveria "value must be unique", genérico demais).
-    const existente = $app.findAuthRecordByEmail('users', email)
-    if (existente) {
-      return e.badRequestError('Já existe um usuário cadastrado com este e-mail.')
+    // findAuthRecordByEmail LANÇA ("sql: no rows") quando não encontra —
+    // nunca devolve null — então a ausência tem de ser capturada como "livre".
+    try {
+      const existente = $app.findAuthRecordByEmail('users', email)
+      if (existente) {
+        return e.badRequestError('Já existe um usuário cadastrado com este e-mail.')
+      }
+    } catch (_) {
+      // E-mail livre: pode cadastrar.
     }
 
     const col = $app.findCollectionByNameOrId('users')
@@ -123,6 +129,7 @@ routerAdd(
     const distribuidor = String(body.distribuidor ?? '').trim()
     const cargo = String(body.cargo ?? '').trim()
 
+    const emailAntigo = rec.getString('email').trim().toLowerCase()
     if (!nome || !email || !papel) {
       return e.badRequestError('Informe nome, e-mail e papel do usuário.')
     }
@@ -133,11 +140,21 @@ routerAdd(
       return e.badRequestError('E-mail inválido.')
     }
 
-    // Duplicidade: o e-mail novo não pode pertencer a OUTRO usuário.
-    if (email !== rec.getString('email')) {
-      const existente = $app.findAuthRecordByEmail('users', email)
-      if (existente && existente.id !== id) {
-        return e.badRequestError('Já existe um usuário cadastrado com este e-mail.')
+    // Duplicidade: o e-mail novo não pode pertencer a OUTRO usuário. Um registro
+    // com e-mail VAZIO (caso "Leandro": edições antigas via PATCH nativo falharam
+    // no meio e deixaram o campo em branco) é tratado como preenchimento novo —
+    // o e-mail informado conta como mudança e não como "igual ao atual".
+    // ATENÇÃO: findAuthRecordByEmail LANÇA ("sql: no rows") quando não encontra —
+    // nunca devolve null. Sem try/catch, um e-mail livre estoura 500 antes de
+    // qualquer mensagem clara; por isso a ausência é capturada como "livre".
+    if (email !== emailAntigo) {
+      try {
+        const existente = $app.findAuthRecordByEmail('users', email)
+        if (existente && existente.id !== id) {
+          return e.badRequestError('Já existe um usuário cadastrado com este e-mail.')
+        }
+      } catch (_) {
+        // E-mail livre: pode usar.
       }
       rec.set('email', email)
     }

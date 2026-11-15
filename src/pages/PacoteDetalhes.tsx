@@ -559,15 +559,6 @@ export default function PacoteDetalhes() {
             />
             {pacote.apresentacao_slides && pacote.apresentacao_slides.length > 0 && (
               <Card className="bg-slate-900/60 border-slate-800">
-                <CardHeader>
-                  <CardTitle className="text-base text-white">
-                    Apresentação Padronizada de Apoio (gerada pela IA)
-                  </CardTitle>
-                  <CardDescription className="text-xs text-slate-400">
-                    Estrutura em slides simples para conduzir a demonstração executiva com o
-                    cliente. Use o gestor acima para baixar a versão .pptx.
-                  </CardDescription>
-                </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {pacote.apresentacao_slides.map((slide, idx) => (
                     <div

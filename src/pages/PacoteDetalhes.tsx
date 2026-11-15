@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { oportunidadeService } from '@/services/oportunidades'
@@ -28,6 +28,8 @@ import {
   Copy,
   Check,
   ExternalLink,
+  Download,
+  Upload,
 } from 'lucide-react'
 
 export default function PacoteDetalhes() {
@@ -41,6 +43,9 @@ export default function PacoteDetalhes() {
   const [gerando, setGerando] = useState(false)
   const [marcandoEnviado, setMarcandoEnviado] = useState(false)
   const [copiado, setCopiado] = useState(false)
+  const [baixandoPptx, setBaixandoPptx] = useState(false)
+  const [enviandoUpload, setEnviandoUpload] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const carregarDados = async () => {
     if (!id) return
@@ -83,6 +88,49 @@ export default function PacoteDetalhes() {
     navigator.clipboard.writeText(textOnly)
     setCopiado(true)
     setTimeout(() => setCopiado(false), 2000)
+  }
+
+  const handleBaixarPptx = async () => {
+    if (!pacote) return
+    try {
+      setBaixandoPptx(true)
+      const { blob, filename } = await pacoteService.baixarPptx(pacote.id)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err: any) {
+      alert(err.message || 'Falha ao baixar a apresentação PowerPoint')
+    } finally {
+      setBaixandoPptx(false)
+    }
+  }
+
+  const handleUploadApresentacao = async (arquivo: File) => {
+    if (!pacote) return
+    const extOk = /\.(pptx?|pdf)$/i.test(arquivo.name)
+    if (!extOk) {
+      alert('Envie um arquivo .pptx, .ppt ou .pdf')
+      return
+    }
+    if (arquivo.size > 50 * 1024 * 1024) {
+      alert('Arquivo muito grande (máximo 50 MB)')
+      return
+    }
+    try {
+      setEnviandoUpload(true)
+      await pacoteService.enviarApresentacao(pacote.id, arquivo)
+      await carregarDados()
+    } catch (err: any) {
+      alert(err.message || 'Falha ao enviar a apresentação do vendedor')
+    } finally {
+      setEnviandoUpload(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
   }
 
   const handleMarcarEnviado = async () => {
@@ -467,14 +515,85 @@ export default function PacoteDetalhes() {
           <TabsContent value="apresentacao" className="space-y-4">
             <Card className="bg-slate-900/60 border-slate-800">
               <CardHeader>
-                <CardTitle className="text-base text-white">
-                  Apresentação Padronizada de Apoio
+                <CardTitle className="text-base text-white flex items-center justify-between flex-wrap gap-2">
+                  <span>Apresentação Padronizada de Apoio</span>
+                  <span className="flex items-center gap-2 flex-wrap">
+                    <Button
+                      size="sm"
+                      onClick={handleBaixarPptx}
+                      disabled={baixandoPptx}
+                      className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium shadow-md shadow-blue-600/20"
+                    >
+                      <Download className="w-3.5 h-3.5 mr-1.5" />
+                      {baixandoPptx ? 'Gerando .pptx...' : 'Baixar .pptx'}
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={enviandoUpload}
+                      className="border-slate-800 bg-slate-950 text-slate-300 hover:text-white text-xs"
+                    >
+                      <Upload className="w-3.5 h-3.5 mr-1.5" />
+                      {enviandoUpload
+                        ? 'Enviando...'
+                        : pacote.apresentacao_upload
+                          ? 'Substituir apresentação'
+                          : 'Enviar apresentação do vendedor'}
+                    </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pptx,.ppt,.pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        if (f) handleUploadApresentacao(f)
+                      }}
+                    />
+                  </span>
                 </CardTitle>
                 <CardDescription className="text-xs text-slate-400">
                   Estrutura em slides simples para conduzir a demonstração executiva com o cliente.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              {/* Arquivo próprio do vendedor (migração 0005) */}
+              {pacote.apresentacao_upload && (
+                <CardContent className="pb-0">
+                  <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-900/40 flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Presentation className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-emerald-200">
+                          Apresentação do vendedor anexada
+                        </p>
+                        <p className="text-[11px] text-slate-400 truncate">
+                          {pacote.apresentacao_upload_nome || 'arquivo-anexado'}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="outline"
+                      className="border-emerald-900/60 text-emerald-200 hover:text-emerald-100 text-xs h-8"
+                    >
+                      <a
+                        href={pacote.apresentacao_upload}
+                        target="_blank"
+                        rel="noreferrer"
+                        download
+                      >
+                        <Download className="w-3.5 h-3.5 mr-1" /> Abrir arquivo
+                      </a>
+                    </Button>
+                  </div>
+                </CardContent>
+              )}
+
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6">
                 {pacote.apresentacao_slides && pacote.apresentacao_slides.length > 0 ? (
                   pacote.apresentacao_slides.map((slide, idx) => (
                     <div

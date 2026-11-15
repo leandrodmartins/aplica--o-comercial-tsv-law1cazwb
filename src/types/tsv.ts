@@ -89,6 +89,9 @@ export interface PacotePreparacao {
   revisor?: string
   aprovado_em?: string
   enviado_em?: string
+  /** Arquivo de apresentação próprio do vendedor (campo file da migração 0005). */
+  apresentacao_upload?: string
+  apresentacao_upload_nome?: string
   created: string
   updated: string
   expand?: {

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-15T15:21:10.016Z",
+  "generatedAt": "2026-11-15T16:57:39.807Z",
   "collections": [
     {
       "name": "users",
@@ -403,6 +403,12 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "apresentacao_upload",
+          "type": "file",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [

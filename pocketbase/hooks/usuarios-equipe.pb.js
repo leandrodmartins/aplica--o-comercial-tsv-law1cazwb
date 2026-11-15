@@ -2,8 +2,15 @@
 
 /**
  * Rotas dedicadas para a tela Equipe & Usuários (/equipe):
+ *   GET  /backend/v1/usuarios-equipe/listar
  *   POST /backend/v1/usuarios-equipe/criar
  *   POST /backend/v1/usuarios-equipe/atualizar
+ *
+ * A rota "listar" existe porque o CRUD nativo da coleção users oculta o campo
+ * email dos registros de auth na API para quem não é o dono do registro (mesmo
+ * mecanismo que protege o hash de senha) — com a regra de leitura liberada, o
+ * e-mail dos outros usuários chega vazio no frontend. Hooks rodam com
+ * privilégio de servidor, então o campo vem preenchido.
  *
  * Motivo: o fluxo nativo de CRUD de auth records do PocketBase devolve erros
  * que confundem o usuário ("passwords don't match", "value must be unique")
@@ -18,6 +25,38 @@
  * Formato dos usuários devolvido: { id, email, name, role, distribuidor,
  * cargo, created, updated }.
  */
+
+// Lista todos os usuários da equipe. Existe porque o CRUD nativo da coleção
+// users oculta o campo email de registros de auth na API para quem não é o
+// dono do registro — hooks rodam com privilégio de servidor, então o campo
+// vem preenchido para todos. Somente admin/tsv (mesmo padrão das rotas
+// criar/atualizar). Ordenado por name; formato igual ao das outras rotas.
+routerAdd(
+  'GET',
+  '/backend/v1/usuarios-equipe/listar',
+  (e) => {
+    const auth = e.auth
+    if (!auth) return e.unauthorizedError('Faça login para gerenciar usuários.')
+    const papelAuth = auth.getString('role')
+    if (papelAuth !== 'admin' && papelAuth !== 'tsv') {
+      return e.forbiddenError('Somente administradores e TSV podem listar usuários.')
+    }
+
+    const usuarios = $app.findRecordsByFilter('users', '', 'name', 0, 0).map((rec) => ({
+      id: rec.id,
+      email: rec.getString('email'),
+      name: rec.getString('name'),
+      role: rec.getString('role'),
+      distribuidor: rec.getString('distribuidor'),
+      cargo: rec.getString('cargo'),
+      created: rec.getString('created'),
+      updated: rec.getString('updated'),
+    }))
+
+    return e.json(200, usuarios)
+  },
+  $apis.requireAuth(),
+)
 
 routerAdd(
   'POST',

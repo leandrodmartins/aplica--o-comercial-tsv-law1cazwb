@@ -63,10 +63,19 @@ async function chamarRota(
 }
 
 export const usuarioService = {
-  /** Lista todos os usuários (somente admin/tsv na prática; a regra da coleção permite ver todos autenticados). */
+  /**
+   * Lista todos os usuários via rota dedicada do backend
+   * (GET /backend/v1/usuarios-equipe/listar). O CRUD nativo da coleção users
+   * oculta o campo email de registros de auth na API para quem não é o dono
+   * do registro — a rota roda no servidor e devolve o e-mail preenchido de
+   * todos. Ordenado por name; exige papel admin/tsv.
+   */
   async listar(): Promise<AppUser[]> {
-    const recs = await pb.collection(COLECAO).getFullList({ sort: '-created' })
-    return recs.map(mapear)
+    const usuarios = (await pb.send('/backend/v1/usuarios-equipe/listar', {
+      method: 'GET',
+      headers: { Authorization: pb.authStore.token },
+    })) as Array<Record<string, unknown>>
+    return usuarios.map(mapear)
   },
 
   /**

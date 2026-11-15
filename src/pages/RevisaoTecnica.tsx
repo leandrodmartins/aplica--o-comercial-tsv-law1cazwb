@@ -35,7 +35,7 @@ import {
 } from 'lucide-react'
 
 export default function RevisaoTecnica() {
-  const { user, isTSV } = useAuth()
+  const { user, isTSV, podeAprovarPacote } = useAuth()
   const [searchParams] = useSearchParams()
   const oportunidadeParam = searchParams.get('oportunidade')
 
@@ -146,8 +146,8 @@ export default function RevisaoTecnica() {
 
   const handleAprovar = async () => {
     if (!pacote) return
-    if (!isTSV) {
-      setErrorMsg('Apenas revisores da TSV possuem autorização para aprovação técnica.')
+    if (!podeAprovarPacote) {
+      setErrorMsg('Apenas o revisor técnico ou o administrador podem aprovar o pacote.')
       return
     }
 
@@ -184,8 +184,10 @@ export default function RevisaoTecnica() {
 
   const handleRejeitar = async () => {
     if (!pacote) return
-    if (!isTSV) {
-      setErrorMsg('Apenas revisores da TSV possuem autorização técnica.')
+    if (!podeAprovarPacote) {
+      setErrorMsg(
+        'Apenas o revisor técnico ou o administrador podem devolver o pacote para ajuste.',
+      )
       return
     }
     const motivo = prompt('Informe os pontos a serem corrigidos pelo vendedor ou IA:')
@@ -227,9 +229,9 @@ export default function RevisaoTecnica() {
         </div>
 
         <div className="flex items-center gap-2">
-          {!isTSV && (
+          {!podeAprovarPacote && (
             <Badge variant="outline" className="border-amber-500/30 text-amber-300 text-xs p-2">
-              Modo Visualizador: Apenas a TSV pode emitir aprovação final
+              Modo Visualizador: Revisor técnico ou TSV pode emitir aprovação final
             </Badge>
           )}
         </div>
@@ -431,7 +433,7 @@ export default function RevisaoTecnica() {
                   <Save className="w-3.5 h-3.5 mr-1.5" /> Salvar Edições
                 </Button>
 
-                {isTSV ? (
+                {podeAprovarPacote ? (
                   <div className="flex items-center gap-2">
                     <Button
                       variant="destructive"

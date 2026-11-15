@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { AppUser } from '@/types/tsv'
+import { podeAprovar } from '@/lib/governanca'
 import { authService } from '@/services/auth'
 
 interface AuthContextType {
@@ -13,6 +14,8 @@ interface AuthContextType {
   isAdmin: boolean
   /** Revisor técnico (ou admin): pode aprovar/rejeitar pacotes. */
   isRevisor: boolean
+  /** Pode emitir aprovação técnica de pacotes (revisor ou admin). */
+  podeAprovarPacote: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -54,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isTSV: user?.role === 'tsv',
         isAdmin: user?.role === 'admin' || user?.role === 'tsv',
         isRevisor: user?.role === 'revisor' || user?.role === 'admin',
+        podeAprovarPacote: podeAprovar(user?.role),
       }}
     >
       {children}

@@ -37,16 +37,22 @@ export const usuarioService = {
    * admin já envia o link de "definir senha" pela própria tela da Equipe.
    */
   async criar(dados: DadosUsuario, senhaProvisoria?: string): Promise<AppUser> {
+    // Conta nasce com senha provisória: o admin envia depois o e-mail de
+    // "definir senha" pela ação Senha da tela. O hook users-sanitizar-senha.pb.js
+    // no servidor reforça isso quando os campos chegam vazios.
     const senha = senhaProvisoria || 'Mudar@2026'
-    const rec = await pb.collection(COLECAO).create({
+    const corpo: Record<string, unknown> = {
       email: dados.email,
-      password: senha,
-      passwordConfirm: senha,
       name: dados.name,
       role: dados.role,
       distribuidor: dados.distribuidor || '',
       cargo: dados.cargo || '',
-    })
+    }
+    if (senha) {
+      corpo.password = senha
+      corpo.passwordConfirm = senha
+    }
+    const rec = await pb.collection(COLECAO).create(corpo)
     return mapear(rec)
   },
 

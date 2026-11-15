@@ -119,6 +119,9 @@ export default function Equipe() {
   const salvarUsuario = async () => {
     setSalvando(true)
     setErros({})
+    // Edição só trata nome, e-mail, papel, distribuidor e cargo — nunca senha.
+    // Se o PocketBase devolver um erro de senha (payload inesperado), a causa
+    // real é mostrada e o erro não é atribuído a campos que não existem aqui.
     try {
       const dados: DadosUsuario = {
         name: form.name.trim(),
@@ -335,6 +338,7 @@ export default function Equipe() {
                 placeholder="usuario@empresa.com.br"
               />
               {erros.email && <p className="text-xs text-destructive">{erros.email}</p>}
+              {erros.password && <p className="text-xs text-destructive">{erros.password}</p>}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">

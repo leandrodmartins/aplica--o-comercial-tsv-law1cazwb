@@ -5,14 +5,18 @@
  * (requestPasswordReset) para apontar para a página do app (/redefinir-senha)
  * e escrever em PT-BR na identidade TSV.
  *
+ * Nome correto do hook do PocketBase (v0.23+): onMailerRecordPasswordResetSend.
+ * A versão anterior usava "onMailerUserAuthResetRequest", que não existe na
+ * JSVM — o registro falhava e o e-mail nunca partia com o template do app.
+ *
  * Toda a lógica fica inline no callback (exigência do JSVM do PocketBase).
  */
-onMailerUserAuthResetRequest((e) => {
+onMailerRecordPasswordResetSend((e) => {
   const appUrl = ($os.getenv('SITE_URL') || $os.getenv('PB_INSTANCE_URL') || '').replace(/\/$/, '')
   const token = e.token || ''
   const link = appUrl ? appUrl + '/redefinir-senha/' + encodeURIComponent(token) : e.url // fallback: URL de confirmação nativa do PocketBase
 
-  const nome = e.user.name() || e.user.email()
+  const nome = e.record.name() || e.record.email()
   const html = `
     <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#0f172a;">
       <h2 style="margin:0 0 4px;">Olá, ${nome}!</h2>

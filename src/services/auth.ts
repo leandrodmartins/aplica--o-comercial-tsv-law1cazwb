@@ -1,99 +1,48 @@
 import pb from '@/lib/pocketbase/client'
-import { AppUser } from '@/types/tsv'
+import { AppUser, UserRole } from '@/types/tsv'
+
+export interface CredenciaisLogin {
+  email: string
+  password: string
+}
 
 export const authService = {
-  getCurrentUser(): AppUser | null {
-    if (!pb.authStore.isValid || !pb.authStore.record) {
-      return null
-    }
-    const rec = pb.authStore.record
-    return {
-      id: rec.id,
-      email: rec.email,
-      name: (rec.name as string) || (rec.email as string).split('@')[0],
-      avatar: rec.avatar ? pb.files.getURL(rec, rec.avatar as string) : undefined,
-      role: (rec.role as 'tsv' | 'vendedor') || 'vendedor',
-      distribuidora: rec.distribuidora as string | undefined,
-      cargo: rec.cargo as string | undefined,
-      created: rec.created as string,
-      updated: rec.updated as string,
-    }
+  async login(credenciais: CredenciaisLogin): Promise<AppUser> {
+    const auth = await pb
+      .collection('users')
+      .authWithPassword(credenciais.email, credenciais.password)
+    return authService.mapear(auth.record)
   },
 
-  isTSV(): boolean {
-    const user = this.getCurrentUser()
-    return user?.role === 'tsv'
+  /** Envia o e-mail de recuperação (via SMTP configurado no Skip Cloud). */
+  async recuperar(email: string): Promise<void> {
+    await pb.collection('users').requestPasswordReset(email)
   },
 
-  async login(email: string, pass: string): Promise<AppUser> {
-    const authData = await pb.collection('users').authWithPassword(email, pass)
-    const rec = authData.record
-    return {
-      id: rec.id,
-      email: rec.email,
-      name: (rec.name as string) || (rec.email as string).split('@')[0],
-      avatar: rec.avatar ? pb.files.getURL(rec, rec.avatar as string) : undefined,
-      role: (rec.role as 'tsv' | 'vendedor') || 'vendedor',
-      distribuidora: rec.distribuidora as string | undefined,
-      cargo: rec.cargo as string | undefined,
-      created: rec.created as string,
-      updated: rec.updated as string,
-    }
-  },
-
-  logout(): void {
+  logout() {
     pb.authStore.clear()
   },
 
-  async listarEquipe(): Promise<AppUser[]> {
-    const records = await pb.collection('users').getFullList({
-      sort: '-created',
-    })
-    return records.map((rec) => ({
-      id: rec.id,
-      email: rec.email,
-      name: (rec.name as string) || (rec.email as string).split('@')[0],
-      avatar: rec.avatar ? pb.files.getURL(rec, rec.avatar as string) : undefined,
-      role: (rec.role as 'tsv' | 'vendedor') || 'vendedor',
-      distribuidora: rec.distribuidora as string | undefined,
-      cargo: rec.cargo as string | undefined,
-      created: rec.created as string,
-      updated: rec.updated as string,
-    }))
+  /** Atualiza o perfil do próprio usuário (nome, cargo). Papel/distribuidor só via Equipe (admin). */
+  async atualizarPerfil(
+    id: string,
+    dados: Partial<{ name: string; cargo: string }>,
+  ): Promise<AppUser> {
+    const rec = await pb.collection('users').update(id, dados)
+    return authService.mapear(rec)
   },
 
-  async cadastrarUsuario(dados: {
-    email: string
-    name: string
-    password?: string
-    role: 'tsv' | 'vendedor'
-    distribuidora?: string
-    cargo?: string
-  }): Promise<AppUser> {
-    const defaultPassword = dados.password || 'Skip@Pass'
-    const rec = await pb.collection('users').create({
-      email: dados.email,
-      name: dados.name,
-      password: defaultPassword,
-      passwordConfirm: defaultPassword,
-      role: dados.role,
-      distribuidora: dados.distribuidora,
-      cargo: dados.cargo,
-      emailVisibility: true,
-    })
+  mapear(rec: any): AppUser {
     return {
       id: rec.id,
       email: rec.email,
-      name: (rec.name as string) || (rec.email as string).split('@')[0],
-      role: (rec.role as 'tsv' | 'vendedor') || 'vendedor',
-      distribuidora: rec.distribuidora as string | undefined,
-      cargo: rec.cargo as string | undefined,
-      created: rec.created as string,
-      updated: rec.updated as string,
+      name: rec.name || '',
+      avatar: rec.avatar ? pb.files.getURL(rec, rec.avatar) : undefined,
+      role: rec.role as UserRole,
+      distribuidor: rec.distribuidor || undefined,
+      cargo: rec.cargo || undefined,
+      created: rec.created,
+      updated: rec.updated,
     }
-  },
-
-  async atualizarUsuario(id: string, dados: Partial<AppUser>): Promise<void> {
-    await pb.collection('users').update(id, dados)
   },
 }

@@ -4,6 +4,8 @@ import { useAuth } from '@/context/AuthContext'
 import { oportunidadeService } from '@/services/oportunidades'
 import { pacoteService } from '@/services/pacotes'
 import GerenciadorArquivos from '@/components/pacotes/GerenciadorArquivos'
+import TrilhaEventos from '@/components/pacotes/TrilhaEventos'
+import { ehRascunho } from '@/lib/governanca'
 import { montarPromptApresentacao } from '@/lib/promptApresentacao'
 import { Oportunidade, PacotePreparacao } from '@/types/tsv'
 import { Button } from '@/components/ui/button'
@@ -32,11 +34,12 @@ import {
   ExternalLink,
   Download,
   Upload,
+  History,
 } from 'lucide-react'
 
 export default function PacoteDetalhes() {
   const { id } = useParams<{ id: string }>()
-  const { user, isTSV } = useAuth()
+  const { user, isTSV, isAdmin, isRevisor } = useAuth()
   const navigate = useNavigate()
 
   const [oportunidade, setOportunidade] = useState<Oportunidade | null>(null)
@@ -54,7 +57,7 @@ export default function PacoteDetalhes() {
     if (!id) return
     try {
       setLoading(true)
-      const op = await oportunidadeService.obterPorId(id)
+      const op = await oportunidadeService.obter(id)
       setOportunidade(op)
       const pac = await pacoteService.obterPorOportunidade(id)
       setPacote(pac)
@@ -167,6 +170,7 @@ export default function PacoteDetalhes() {
   }
 
   const status = pacote?.status_revisao || 'rascunho'
+  const rascunho = ehRascunho(status)
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl space-y-6">
@@ -194,6 +198,11 @@ export default function PacoteDetalhes() {
                   v{pacote.versao}
                 </Badge>
               )}
+              {rascunho && (
+                <Badge className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/20">
+                  Rascunho — não enviar
+                </Badge>
+              )}
             </div>
             <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
               Pacote de Preparação Técnico-Comercial
@@ -213,7 +222,7 @@ export default function PacoteDetalhes() {
             {pacote ? 'Regerar com IA' : 'Gerar com IA'}
           </Button>
 
-          {isTSV && (
+          {(isTSV || isAdmin || isRevisor) && (
             <Button
               asChild
               size="sm"
@@ -221,7 +230,7 @@ export default function PacoteDetalhes() {
             >
               <Link to={`/revisao?oportunidade=${oportunidade.id}`}>
                 <FileCheck2 className="w-3.5 h-3.5 mr-1.5" />
-                Painel de Revisão Técnica TSV
+                Painel de Revisão Técnica {isRevisor ? '(Revisor)' : 'TSV'}
               </Link>
             </Button>
           )}
@@ -363,6 +372,13 @@ export default function PacoteDetalhes() {
               className="text-xs data-[state=active]:bg-blue-600 data-[state=active]:text-white"
             >
               <FileCheck2 className="w-3.5 h-3.5 mr-1.5" /> Referências Brigade & Pendências
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="trilha"
+              className="text-xs data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            >
+              <History className="w-3.5 h-3.5 mr-1.5" /> Trilha de Eventos
             </TabsTrigger>
           </TabsList>
 

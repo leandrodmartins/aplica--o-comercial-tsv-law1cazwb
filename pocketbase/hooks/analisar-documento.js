@@ -18,8 +18,10 @@ routerAdd(
       if (!authId) return e.unauthorizedError('Autenticacao necessaria')
 
       const authRole = e.auth?.getString('role') || 'vendedor'
-      if (authRole !== 'tsv') {
-        return e.forbiddenError('Apenas a TSV pode cadastrar documentos no acervo tecnico')
+      if (authRole !== 'tsv' && authRole !== 'admin') {
+        return e.forbiddenError(
+          'Apenas a TSV (ou administrador) pode cadastrar documentos no acervo tecnico',
+        )
       }
 
       const uploaded = e.findUploadedFiles('arquivo')

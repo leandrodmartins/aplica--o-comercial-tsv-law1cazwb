@@ -1,4 +1,14 @@
-export type UserRole = 'tsv' | 'vendedor'
+export type UserRole = 'admin' | 'tsv' | 'revisor' | 'vendedor'
+
+export const ROTULO_PAPEL: Record<UserRole, string> = {
+  admin: 'Administrador',
+  tsv: 'TSV',
+  revisor: 'Revisor Técnico',
+  vendedor: 'Vendedor',
+}
+
+/** Papéis que veem dados de todos os distribuidores (sem isolamento). */
+export const PAPEIS_SEM_ISOLAMENTO: UserRole[] = ['admin', 'tsv', 'revisor']
 
 export interface AppUser {
   id: string
@@ -6,13 +16,42 @@ export interface AppUser {
   name: string
   avatar?: string
   role: UserRole
-  distribuidora?: string
+  distribuidor?: string
   cargo?: string
   created: string
   updated: string
 }
 
-export type OportunidadeEstado = 'rascunho' | 'em_revisao' | 'aprovado' | 'enviado'
+/**
+ * Estados da oportunidade conforme o PRD (MVP):
+ * novo_lead → em_preparacao → em_revisao → aprovado → enviado → ganho/perdido.
+ */
+export type OportunidadeEstado =
+  | 'novo_lead'
+  | 'em_preparacao'
+  | 'em_revisao'
+  | 'aprovado'
+  | 'enviado'
+  | 'ganho'
+  | 'perdido'
+
+export const ROTULO_ESTADO: Record<OportunidadeEstado, string> = {
+  novo_lead: 'Novo Lead',
+  em_preparacao: 'Em Preparação',
+  em_revisao: 'Em Revisão',
+  aprovado: 'Aprovado',
+  enviado: 'Enviado',
+  ganho: 'Ganho',
+  perdido: 'Perdido',
+}
+
+export const ESTADOS_ATIVOS: OportunidadeEstado[] = [
+  'novo_lead',
+  'em_preparacao',
+  'em_revisao',
+  'aprovado',
+  'enviado',
+]
 
 export type OportunidadeSegmento =
   | 'mineracao'
@@ -39,7 +78,8 @@ export interface Oportunidade {
   proxima_acao_data?: string
   responsavel: string
   criado_por?: string
-  distribuidora?: string
+  distribuidor?: string
+  distribuidora?: string // legado (texto livre); usar distribuidor
   created: string
   updated: string
   expand?: {
@@ -49,6 +89,14 @@ export interface Oportunidade {
 }
 
 export type StatusRevisao = 'rascunho' | 'em_revisao' | 'aprovado' | 'rejeitado' | 'enviado'
+
+export const ROTULO_STATUS_REVISAO: Record<StatusRevisao, string> = {
+  rascunho: 'Rascunho',
+  em_revisao: 'Em Revisão',
+  aprovado: 'Aprovado',
+  rejeitado: 'Rejeitado',
+  enviado: 'Enviado',
+}
 
 export interface PerguntaPriorizada {
   ordem: number
@@ -97,6 +145,20 @@ export interface PacotePreparacao {
   expand?: {
     oportunidade?: Oportunidade
     revisor?: AppUser
+  }
+}
+
+/** Trilha de eventos (quem fez o quê e quando) por oportunidade/pacote. */
+export interface EventoTrilha {
+  id: string
+  oportunidade: string
+  pacote?: string
+  usuario: string
+  acao: string
+  detalhe?: string
+  created: string
+  expand?: {
+    usuario?: AppUser
   }
 }
 

@@ -24,8 +24,15 @@ routerAdd(
       const oportunidade = $app.findRecordById('oportunidades', pacote.getString('oportunidade'))
 
       const authRole = e.auth?.getString('role') || 'vendedor'
-      if (authRole !== 'tsv' && oportunidade.getString('responsavel') !== authId) {
-        return e.forbiddenError('Apenas o responsavel ou a TSV pode baixar a apresentacao')
+      const papelInterno = authRole === 'tsv' || authRole === 'admin' || authRole === 'revisor'
+      const mesmoDistribuidor =
+        authRole === 'vendedor' &&
+        oportunidade.getString('distribuidor') !== '' &&
+        oportunidade.getString('distribuidor') === e.auth?.getString('distribuidor')
+      if (!papelInterno && oportunidade.getString('responsavel') !== authId && !mesmoDistribuidor) {
+        return e.forbiddenError(
+          'Apenas o responsavel ou membros do mesmo distribuidor podem baixar a apresentacao',
+        )
       }
 
       const empresa = oportunidade.getString('empresa') || 'Cliente'

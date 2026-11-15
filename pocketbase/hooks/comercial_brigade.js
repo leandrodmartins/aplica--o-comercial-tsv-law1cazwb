@@ -28,9 +28,15 @@ routerAdd(
       const authRole = e.auth?.getString('role') || 'vendedor'
       const responsavelId = opRecord.getString('responsavel')
 
-      if (authRole !== 'tsv' && responsavelId !== authId) {
+      const papelInterno = authRole === 'tsv' || authRole === 'admin' || authRole === 'revisor'
+      const mesmoDistribuidor =
+        authRole === 'vendedor' &&
+        opRecord.getString('distribuidor') !== '' &&
+        opRecord.getString('distribuidor') === e.auth?.getString('distribuidor')
+
+      if (!papelInterno && responsavelId !== authId && !mesmoDistribuidor) {
         return e.forbiddenError(
-          'Apenas o responsavel ou a TSV pode gerar pacotes para esta oportunidade',
+          'Apenas o responsavel ou membros do mesmo distribuidor podem gerar pacotes para esta oportunidade',
         )
       }
 
@@ -281,10 +287,25 @@ routerAdd(
       const oportunidadeId = pacote.getString('oportunidade')
       const oportunidade = $app.findRecordById('oportunidades', oportunidadeId)
 
-      // Somente TSV pode aprovar ou rejeitar formalmente
-      if ((acao === 'aprovar' || acao === 'rejeitar') && authRole !== 'tsv') {
+      // Aprovar/rejeitar: somente revisor ou admin (PRD MVP - papel de revisor separado)
+      if (
+        (acao === 'aprovar' || acao === 'rejeitar') &&
+        authRole !== 'revisor' &&
+        authRole !== 'admin'
+      ) {
         return e.forbiddenError(
-          'Apenas aprovadores da TSV podem aprovar ou rejeitar o pacote de preparacao',
+          'Apenas revisores tecnicos (ou administradores) podem aprovar ou rejeitar o pacote de preparacao',
+        )
+      }
+
+      // Marcar como enviado: somente pacote aprovado pode ser enviado externamente (marca de rascunho)
+      if (
+        acao === 'marcar_enviado' &&
+        pacote.getString('status_revisao') !== 'aprovado' &&
+        pacote.getString('status_revisao') !== 'enviado'
+      ) {
+        return e.forbiddenError(
+          'Somente pacotes aprovados pela revisao tecnica podem ser marcados como enviados. O material atual e rascunho.',
         )
       }
 
@@ -329,6 +350,26 @@ routerAdd(
       } else {
         // salvar edição simples
         $app.save(pacote)
+      }
+
+      // Trilha de eventos: quem fez o quê e quando
+      try {
+        const eventosCol = $app.findCollectionByNameOrId('eventos_trilha')
+        const ev = new Record(eventosCol)
+        ev.set('oportunidade', oportunidadeId)
+        ev.set('pacote', pacote.id)
+        ev.set('usuario', authId)
+        const acoes = {
+          aprovar: 'Pacote aprovado na revisao tecnica',
+          rejeitar: 'Pacote rejeitado na revisao tecnica',
+          marcar_enviado: 'Pacote marcado como enviado ao cliente',
+          salvar_edicao: 'Pacote editado durante a revisao',
+        }
+        ev.set('acao', acoes[acao] || 'Acao de revisao: ' + acao)
+        if (notasRevisor) ev.set('detalhe', String(notasRevisor).slice(0, 2000))
+        $app.save(ev)
+      } catch (errTrilha) {
+        console.log('Aviso: falha ao registrar evento de trilha:', errTrilha)
       }
 
       return e.json(200, {

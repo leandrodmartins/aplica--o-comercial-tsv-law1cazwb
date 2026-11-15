@@ -18,7 +18,7 @@ import {
 import { useState } from 'react'
 
 export default function Navbar() {
-  const { user, logout, isTSV } = useAuth()
+  const { user, logout, isTSV, isAdmin } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -33,7 +33,7 @@ export default function Navbar() {
     { label: 'Nova Oportunidade', path: '/nova-oportunidade', icon: PlusCircle },
     { label: 'Revisão Técnica', path: '/revisao', icon: FileCheck2 },
     { label: 'Acervo Técnico', path: '/acervo', icon: FolderArchive },
-    ...(isTSV ? [{ label: 'Equipe', path: '/equipe', icon: Users }] : []),
+    ...(isAdmin ? [{ label: 'Equipe', path: '/equipe', icon: Users }] : []),
   ]
 
   return (

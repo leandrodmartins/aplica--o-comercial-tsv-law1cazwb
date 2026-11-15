@@ -16,7 +16,10 @@ onMailerRecordPasswordResetSend((e) => {
   const token = e.token || ''
   const link = appUrl ? appUrl + '/redefinir-senha/' + encodeURIComponent(token) : e.url // fallback: URL de confirmação nativa do PocketBase
 
-  const nome = e.record.name() || e.record.email()
+  // ATENÇÃO JSVM: Record não tem métodos .name()/.email() — acessar esses
+  // membros lança "Object has no member 'name'" no goja. Usar sempre os
+  // getters tipados (getString), com fallback para o e-mail e um texto final.
+  const nome = e.record.getString('name') || e.record.getString('email') || 'usuário'
   const html = `
     <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#0f172a;">
       <h2 style="margin:0 0 4px;">Olá, ${nome}!</h2>

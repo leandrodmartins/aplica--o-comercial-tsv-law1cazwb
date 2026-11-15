@@ -202,12 +202,31 @@ routerAdd(
     // Envia pelo mecanismo nativo do PocketBase (mesmo fluxo do
     // requestPasswordReset) — passa pelo onMailerRecordPasswordResetSend,
     // que aplica o template/link do app (/redefinir-senha).
+    // Erros nunca são devolvidos crus ao frontend: são traduzidos em
+    // mensagens legíveis em português.
     try {
       $mails.sendRecordPasswordReset($app, rec)
     } catch (err) {
-      const msg = String(err && err.message ? err.message : err)
-      console.warn('[usuarios-equipe] falha ao enviar e-mail de senha:', msg)
-      return e.badRequestError('Não foi possível enviar o e-mail de definição de senha: ' + msg)
+      const cru = String((err && err.message) || err || '')
+      console.warn('[usuarios-equipe] falha ao enviar e-mail de senha:', cru)
+      let amigavel = cru
+      if (cru.indexOf('no member') >= 0) {
+        amigavel = 'erro interno no envio (template do e-mail) — entre em contato com o suporte.'
+      } else if (
+        cru.indexOf('connect') >= 0 ||
+        cru.indexOf('dial') >= 0 ||
+        cru.indexOf('timeout') >= 0 ||
+        cru.indexOf('refused') >= 0
+      ) {
+        amigavel =
+          'o servidor de e-mail não respondeu — verifique a configuração SMTP e tente de novo.'
+      } else if (cru.indexOf('smtp') >= 0 || cru.indexOf('535') >= 0 || cru.indexOf('auth') >= 0) {
+        amigavel =
+          'o servidor de e-mail recusou as credenciais — verifique a configuração SMTP no painel.'
+      }
+      return e.badRequestError(
+        'Não foi possível enviar o e-mail de definição de senha: ' + amigavel,
+      )
     }
 
     return e.json(200, { ok: true, email: rec.getString('email') })

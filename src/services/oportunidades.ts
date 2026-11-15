@@ -13,6 +13,23 @@ export interface OportunidadeCriar {
   estado?: OportunidadeEstado
   proxima_acao?: string
   responsavel?: string
+  distribuidor?: string
+}
+
+export const usuarioService = {
+  /** Lista usuários (equipe) — usado pelo seletor de responsável. */
+  async listarEquipe(): Promise<AppUser[]> {
+    const recs = await pb.collection('users').getFullList({ sort: 'name' })
+    return recs.map((r: any) => ({
+      id: r.id,
+      email: r.email,
+      name: r.name || '',
+      role: r.role,
+      distribuidor: r.distribuidor || undefined,
+      created: r.created,
+      updated: r.updated,
+    }))
+  },
 }
 
 export const oportunidadeService = {
@@ -21,10 +38,27 @@ export const oportunidadeService = {
    * O isolamento primário é a listRule da coleção (servidor); aqui mantemos um
    * filtro defensivo extra no cliente.
    */
-  async listar(): Promise<Oportunidade[]> {
+  async listar(filtros?: {
+    estado?: OportunidadeEstado | string
+    busca?: string
+    distribuidor?: string
+  }): Promise<Oportunidade[]> {
+    const filterParts: string[] = []
+    if (filtros?.estado && filtros.estado !== 'todos') {
+      filterParts.push(`estado = '${filtros.estado}'`)
+    }
+    if (filtros?.busca?.trim()) {
+      const q = filtros.busca.trim().replace(/'/g, "\\'")
+      filterParts.push(`(empresa ~ '${q}' || contato_nome ~ '${q}' || aplicacao ~ '${q}')`)
+    }
+    // Filtro defensivo por distribuidor (a regra da coleção já isola no servidor).
+    if (filtros?.distribuidor) {
+      filterParts.push(`distribuidor = '${filtros.distribuidor}'`)
+    }
     const recs = await pb.collection('oportunidades').getFullList({
       sort: '-updated',
       expand: 'responsavel,criado_por',
+      ...(filterParts.length ? { filter: filterParts.join(' && ') } : {}),
     })
     return recs.map((r: any) => oportunidadeService.mapear(r))
   },

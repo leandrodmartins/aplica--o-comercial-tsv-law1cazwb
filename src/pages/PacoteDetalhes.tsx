@@ -235,12 +235,21 @@ export default function PacoteDetalhes() {
             </Button>
           )}
 
-          {status === 'aprovado' && (
+          {status === 'enviado' ? (
+            <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-xs">
+              Enviado ao cliente
+            </Badge>
+          ) : (
             <Button
               size="sm"
               onClick={handleMarcarEnviado}
-              disabled={marcandoEnviado}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs"
+              disabled={marcandoEnviado || rascunho}
+              title={
+                rascunho
+                  ? 'Envio bloqueado: pacote em rascunho — só pode ser enviado após aprovação da revisão técnica.'
+                  : undefined
+              }
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send className="w-3.5 h-3.5 mr-1.5" />
               Marcar como Enviado ao Lead
@@ -661,6 +670,11 @@ export default function PacoteDetalhes() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* TAB 6: TRILHA DE EVENTOS (quem fez o quê e quando) */}
+          <TabsContent value="trilha" className="space-y-4">
+            <TrilhaEventos oportunidadeId={oportunidade.id} pacoteId={pacote?.id} />
           </TabsContent>
         </Tabs>
       )}

@@ -1,68 +1,83 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 /**
- * Hook: registra eventos na trilha (coleção eventos_trilha) em cada ação
- * relevante do fluxo comercial — criação de oportunidade, geração de pacote,
- * upload de arquivo e revisão (aprovar/rejeitar/enviar). Assim a trilha cobre
- * também as ações que passam pelos hooks, não só as feitas direto no cliente.
+ * Hook: registra eventos na trilha (coleção eventos_trilha) em cada criação
+ * relevante feita pelo cliente — oportunidade, pacote e upload de arquivo.
  *
- * Registra apenas ações de registros autenticados; falha de trilha não deve
- * quebrar a operação principal (log silencioso).
+ * Usa onRecordCreateRequest (PocketBase v0.23+): dispara em requisições HTTP
+ * reais, onde e.auth é o usuário autenticado que fez a ação. Toda a lógica fica
+ * inline no callback (exigência do JSVM do PocketBase: funções de topo não são
+ * visíveis dentro dos callbacks). Falha de trilha não quebra a operação.
  */
 
-const registrarEvento = (e, oportunidadeId, pacoteId, acao, detalhe) => {
-  const usuarioId = e.auth?.id
-  if (!oportunidadeId || !usuarioId) return
+// --- Criação de oportunidade (requisição HTTP do cliente) ---
+onRecordCreateRequest((e) => {
+  e.next()
   try {
+    const oportunidadeId = e.record.id
+    const usuarioId = e.auth?.id
+    if (!oportunidadeId || !usuarioId) return
     const col = e.app.findCollectionByNameOrId('eventos_trilha')
     const ev = new Record(col)
     ev.set('oportunidade', oportunidadeId)
-    if (pacoteId) ev.set('pacote', pacoteId)
     ev.set('usuario', usuarioId)
-    ev.set('acao', acao)
-    if (detalhe) ev.set('detalhe', String(detalhe).slice(0, 2000))
+    ev.set('acao', 'oportunidade_criada')
+    ev.set(
+      'detalhe',
+      `Oportunidade "${e.record.getString('empresa')}" criada (estado inicial: ${e.record.getString('estado')}).`,
+    )
     e.app.save(ev)
   } catch (err) {
-    console.warn('[trilha] falha ao registrar evento:', acao, err)
+    console.warn('[trilha] falha ao registrar oportunidade_criada:', err)
   }
-}
-
-// --- Criação de oportunidade (direto no cliente, via createRule) ---
-onRecordAfterCreateRequest((e) => {
-  registrarEvento(
-    e,
-    e.record.id,
-    '',
-    'oportunidade_criada',
-    `Oportunidade "${e.record.getString('empresa')}" criada (estado inicial: ${e.record.getString('estado')}).`,
-  )
 }, 'oportunidades')
 
 // --- Criação de pacote (gerado pelo assistente ou manual) ---
-onRecordAfterCreateRequest((e) => {
-  registrarEvento(
-    e,
-    e.record.getString('oportunidade'),
-    e.record.id,
-    'pacote_criado',
-    `Pacote de preparação v${e.record.getInt('versao', 1)} gerado (status: ${e.record.getString('status_revisao')}).`,
-  )
+onRecordCreateRequest((e) => {
+  e.next()
+  try {
+    const oportunidadeId = e.record.getString('oportunidade')
+    const usuarioId = e.auth?.id
+    if (!oportunidadeId || !usuarioId) return
+    const col = e.app.findCollectionByNameOrId('eventos_trilha')
+    const ev = new Record(col)
+    ev.set('oportunidade', oportunidadeId)
+    ev.set('pacote', e.record.id)
+    ev.set('usuario', usuarioId)
+    ev.set('acao', 'pacote_criado')
+    ev.set(
+      'detalhe',
+      `Pacote de preparação v${e.record.getInt('versao', 1)} gerado (status: ${e.record.getString('status_revisao')}).`,
+    )
+    e.app.save(ev)
+  } catch (err) {
+    console.warn('[trilha] falha ao registrar pacote_criado:', err)
+  }
 }, 'pacotes')
 
 // --- Upload de arquivo no gestor de arquivos do pacote ---
-onRecordAfterCreateRequest((e) => {
-  // O upload é feito pela TSV/admin em nome de um pacote cuja oportunidade
-  // precisa ser buscada para vincular o evento à oportunidade.
-  let opId = ''
+onRecordCreateRequest((e) => {
+  e.next()
   try {
-    const pacote = e.app.findRecordById('pacotes', e.record.getString('pacote'))
-    opId = pacote.getString('oportunidade')
-  } catch (_) {}
-  registrarEvento(
-    e,
-    opId,
-    e.record.getString('pacote'),
-    'arquivo_enviado',
-    `Arquivo "${e.record.getString('nome')}" enviado ao pacote.`,
-  )
+    const usuarioId = e.auth?.id
+    if (!usuarioId) return
+    // O upload é feito em nome de um pacote cuja oportunidade precisa ser
+    // buscada para vincular o evento à oportunidade.
+    let opId = ''
+    try {
+      const pacote = e.app.findRecordById('pacotes', e.record.getString('pacote'))
+      opId = pacote.getString('oportunidade')
+    } catch (_) {}
+    if (!opId) return
+    const col = e.app.findCollectionByNameOrId('eventos_trilha')
+    const ev = new Record(col)
+    ev.set('oportunidade', opId)
+    ev.set('pacote', e.record.getString('pacote'))
+    ev.set('usuario', usuarioId)
+    ev.set('acao', 'arquivo_enviado')
+    ev.set('detalhe', `Arquivo "${e.record.getString('nome')}" enviado ao pacote.`)
+    e.app.save(ev)
+  } catch (err) {
+    console.warn('[trilha] falha ao registrar arquivo_enviado:', err)
+  }
 }, 'pacote_arquivos')

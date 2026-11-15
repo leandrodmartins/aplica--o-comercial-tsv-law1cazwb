@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { oportunidadeService } from '@/services/oportunidades'
+import { PAPEIS_SEM_ISOLAMENTO, UserRole } from '@/types/tsv'
 import { pacoteService } from '@/services/pacotes'
 import { Oportunidade, PacotePreparacao, PontoPendente } from '@/types/tsv'
 import { Button } from '@/components/ui/button'
@@ -55,10 +56,18 @@ export default function RevisaoTecnica() {
   const carregarOportunidadesRevisao = async () => {
     try {
       setLoading(true)
-      // Lista oportunidades em estado 'em_revisao' ou todas se for TSV
-      const ops = await oportunidadeService.listar()
+      // Lista oportunidades em estado 'em_revisao' ou todas se for TSV.
+      // Vendedor tem filtro defensivo pelo seu distribuidor (a regra da coleção já isola).
+      const semIsolamento = PAPEIS_SEM_ISOLAMENTO.includes(user?.role as UserRole)
+      const ops = await oportunidadeService.listar({
+        distribuidor: semIsolamento ? undefined : user?.distribuidor,
+      })
       const pendentes = ops.filter(
-        (o) => o.estado === 'em_revisao' || o.estado === 'rascunho' || o.id === oportunidadeParam,
+        (o) =>
+          o.estado === 'em_revisao' ||
+          o.estado === 'em_preparacao' ||
+          o.estado === 'novo_lead' ||
+          o.id === oportunidadeParam,
       )
       setOportunidadesEmRevisao(pendentes.length > 0 ? pendentes : ops)
 

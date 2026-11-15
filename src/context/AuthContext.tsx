@@ -9,6 +9,10 @@ interface AuthContextType {
   logout: () => void
   refreshUser: () => void
   isTSV: boolean
+  /** Admin ou TSV: gestão de equipe, enxerga tudo. */
+  isAdmin: boolean
+  /** Revisor técnico (ou admin): pode aprovar/rejeitar pacotes. */
+  isRevisor: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -18,7 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const refreshUser = () => {
-    const currentUser = authService.getCurrentUser()
+    const currentUser = authService.obterUsuarioAtual()
     setUser(currentUser)
   }
 
@@ -28,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (email: string, pass: string) => {
-    const loggedUser = await authService.login(email, pass)
+    const loggedUser = await authService.login({ email, password: pass })
     setUser(loggedUser)
     return loggedUser
   }
@@ -47,6 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         refreshUser,
         isTSV: user?.role === 'tsv',
+        isAdmin: user?.role === 'admin' || user?.role === 'tsv',
+        isRevisor: user?.role === 'revisor' || user?.role === 'admin',
       }}
     >
       {children}

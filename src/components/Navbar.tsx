@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { ROTULO_PAPEL } from '@/types/tsv'
 import {
   ShieldCheck,
   LayoutDashboard,
@@ -93,11 +94,11 @@ export default function Navbar() {
                       isTSV ? 'bg-blue-500/20 text-blue-400' : 'bg-amber-500/20 text-amber-400'
                     }`}
                   >
-                    {isTSV ? 'TSV Aprovador' : 'Vendedor'}
+                    {ROTULO_PAPEL[user.role] || user.role}
                   </Badge>
-                  {user.distribuidora && (
+                  {user.distribuidor && (
                     <span className="text-[10px] text-slate-400 truncate max-w-[120px] flex items-center gap-0.5">
-                      <Building2 className="w-2.5 h-2.5" /> {user.distribuidora}
+                      <Building2 className="w-2.5 h-2.5" /> {user.distribuidor}
                     </span>
                   )}
                 </div>

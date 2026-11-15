@@ -2,6 +2,7 @@ import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import Navbar from '@/components/Navbar'
 
+/** Layout protegido: exige login; papéis específicos são guardados na rota. */
 export default function ProtectedLayout() {
   const { user, loading } = useAuth()
 

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-15T18:34:52.094Z",
+  "generatedAt": "2026-11-15T18:51:04.107Z",
   "collections": [
     {
       "name": "users",
@@ -7,9 +7,9 @@
       "apiRules": {
         "list": "@request.auth.id != ''",
         "view": "@request.auth.id != ''",
-        "create": "@request.auth.role = 'tsv' || @request.auth.id = ''",
-        "update": "id = @request.auth.id || @request.auth.role = 'tsv'",
-        "delete": "@request.auth.role = 'tsv'"
+        "create": "@request.auth.role = 'admin' || @request.auth.role = 'tsv'",
+        "update": "(id = @request.auth.id && @request.body.role:changed = false && @request.body.distribuidor:changed = false) || @request.auth.role = 'admin' || @request.auth.role = 'tsv'",
+        "delete": "@request.auth.role = 'admin' || @request.auth.role = 'tsv'"
       },
       "fields": [
         {
@@ -43,7 +43,7 @@
           "type": "select",
           "required": false,
           "system": false,
-          "selectValues": ["tsv", "vendedor"]
+          "selectValues": ["tsv", "vendedor", "admin", "revisor"]
         },
         {
           "name": "distribuidora",
@@ -53,6 +53,12 @@
         },
         {
           "name": "cargo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "distribuidor",
           "type": "text",
           "required": false,
           "system": false
@@ -156,11 +162,11 @@
       "name": "oportunidades",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (@request.auth.role = 'tsv' || responsavel = @request.auth.id)",
-        "view": "@request.auth.id != '' && (@request.auth.role = 'tsv' || responsavel = @request.auth.id)",
-        "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != '' && (@request.auth.role = 'tsv' || responsavel = @request.auth.id)",
-        "delete": "@request.auth.role = 'tsv'"
+        "list": "@request.auth.id != '' && (@request.auth.role = 'tsv' || @request.auth.role = 'admin' || @request.auth.role = 'revisor' || (@request.auth.role = 'vendedor' && distribuidor != '' && distribuidor = @request.auth.distribuidor))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'tsv' || @request.auth.role = 'admin' || @request.auth.role = 'revisor' || (@request.auth.role = 'vendedor' && distribuidor != '' && distribuidor = @request.auth.distribuidor))",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'tsv' || @request.auth.role = 'admin' || @request.auth.role = 'revisor' || @request.auth.role = 'vendedor')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'tsv' || @request.auth.role = 'admin' || @request.auth.role = 'revisor' || (@request.auth.role = 'vendedor' && distribuidor != '' && distribuidor = @request.auth.distribuidor))",
+        "delete": "@request.auth.role = 'admin' || @request.auth.role = 'tsv'"
       },
       "fields": [
         {
@@ -273,22 +279,29 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "distribuidor",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
         "CREATE INDEX idx_oportunidades_responsavel ON oportunidades (responsavel)",
-        "CREATE INDEX idx_oportunidades_estado ON oportunidades (estado)"
+        "CREATE INDEX idx_oportunidades_estado ON oportunidades (estado)",
+        "CREATE INDEX `idx_oportunidades_distribuidor` ON `oportunidades` (distribuidor)"
       ]
     },
     {
       "name": "pacotes",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (@request.auth.role = 'tsv' || oportunidade.responsavel = @request.auth.id)",
-        "view": "@request.auth.id != '' && (@request.auth.role = 'tsv' || oportunidade.responsavel = @request.auth.id)",
-        "create": "@request.auth.id != ''",
-        "update": "@request.auth.id != '' && (@request.auth.role = 'tsv' || oportunidade.responsavel = @request.auth.id)",
-        "delete": "@request.auth.role = 'tsv'"
+        "list": "@request.auth.id != '' && (@request.auth.role = 'tsv' || @request.auth.role = 'admin' || @request.auth.role = 'revisor' || (@request.auth.role = 'vendedor' && oportunidade.distribuidor != '' && oportunidade.distribuidor = @request.auth.distribuidor))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'tsv' || @request.auth.role = 'admin' || @request.auth.role = 'revisor' || (@request.auth.role = 'vendedor' && oportunidade.distribuidor != '' && oportunidade.distribuidor = @request.auth.distribuidor))",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'tsv' || @request.auth.role = 'admin' || @request.auth.role = 'revisor' || @request.auth.role = 'vendedor')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'tsv' || @request.auth.role = 'admin' || @request.auth.role = 'revisor' || (@request.auth.role = 'vendedor' && oportunidade.distribuidor != '' && oportunidade.distribuidor = @request.auth.distribuidor))",
+        "delete": "@request.auth.role = 'admin' || @request.auth.role = 'tsv'"
       },
       "fields": [
         {
@@ -420,11 +433,11 @@
       "name": "pacote_arquivos",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != '' && (@request.auth.role = 'tsv' || pacote.oportunidade.responsavel = @request.auth.id)",
-        "view": "@request.auth.id != '' && (@request.auth.role = 'tsv' || pacote.oportunidade.responsavel = @request.auth.id)",
-        "create": "@request.auth.id != '' && @request.auth.role = 'tsv' && pacote.oportunidade.responsavel != ''",
-        "update": "@request.auth.id != '' && @request.auth.role = 'tsv' && pacote.oportunidade.responsavel != ''",
-        "delete": "@request.auth.id != '' && @request.auth.role = 'tsv'"
+        "list": "@request.auth.id != '' && (@request.auth.role = 'tsv' || @request.auth.role = 'admin' || @request.auth.role = 'revisor' || (@request.auth.role = 'vendedor' && pacote.oportunidade.distribuidor != '' && pacote.oportunidade.distribuidor = @request.auth.distribuidor))",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'tsv' || @request.auth.role = 'admin' || @request.auth.role = 'revisor' || (@request.auth.role = 'vendedor' && pacote.oportunidade.distribuidor != '' && pacote.oportunidade.distribuidor = @request.auth.distribuidor))",
+        "create": "@request.auth.id != '' && (@request.auth.role = 'tsv' || @request.auth.role = 'admin' || @request.auth.role = 'revisor' || @request.auth.role = 'vendedor')",
+        "update": "@request.auth.id != '' && (@request.auth.role = 'tsv' || @request.auth.role = 'admin' || @request.auth.role = 'revisor' || (@request.auth.role = 'vendedor' && pacote.oportunidade.distribuidor != '' && pacote.oportunidade.distribuidor = @request.auth.distribuidor))",
+        "delete": "@request.auth.role = 'admin' || @request.auth.role = 'tsv'"
       },
       "fields": [
         {
@@ -483,6 +496,70 @@
       "indexes": [
         "CREATE INDEX idx_pacote_arquivos_pacote ON pacote_arquivos (pacote)",
         "CREATE INDEX idx_pacote_arquivos_enviado_por ON pacote_arquivos (enviado_por)"
+      ]
+    },
+    {
+      "name": "eventos_trilha",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'tsv' || @request.auth.role = 'admin' || @request.auth.role = 'revisor' || oportunidade.distribuidor = @request.auth.distribuidor)",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'tsv' || @request.auth.role = 'admin' || @request.auth.role = 'revisor' || oportunidade.distribuidor = @request.auth.distribuidor)",
+        "create": "@request.auth.id != ''",
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "oportunidade",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "oportunidades"
+        },
+        {
+          "name": "pacote",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "pacotes"
+        },
+        {
+          "name": "usuario",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "acao",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "detalhe",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_eventos_trilha_oportunidade ON eventos_trilha (oportunidade)",
+        "CREATE INDEX idx_eventos_trilha_pacote ON eventos_trilha (pacote)"
       ]
     }
   ]

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { oportunidadeService } from '@/services/oportunidades'
-import { Oportunidade, OportunidadeEstado } from '@/types/tsv'
+import { Oportunidade, OportunidadeEstado, PAPEIS_SEM_ISOLAMENTO, UserRole } from '@/types/tsv'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -27,10 +27,14 @@ import {
   Calendar,
   Layers,
   ArrowUpRight,
+  XCircle,
 } from 'lucide-react'
 
 export default function Painel() {
   const { user, isTSV } = useAuth()
+  /** Papéis sem isolamento veem tudo; vendedor (e qualquer outro) filtra pelo seu distribuidor. */
+  const semIsolamento = PAPEIS_SEM_ISOLAMENTO.includes(user?.role as UserRole)
+  const distribuidorFiltro = semIsolamento ? undefined : user?.distribuidor
   const [oportunidades, setOportunidades] = useState<Oportunidade[]>([])
   const [loading, setLoading] = useState(true)
   const [busca, setBusca] = useState('')
@@ -47,7 +51,7 @@ export default function Painel() {
       if (busca.trim()) {
         params.busca = busca.trim()
       }
-      const data = await oportunidadeService.listar(params)
+      const data = await oportunidadeService.listar({ ...params, distribuidor: distribuidorFiltro })
       setOportunidades(data)
     } catch (err) {
       console.error('Erro ao carregar oportunidades:', err)
@@ -67,10 +71,16 @@ export default function Painel() {
 
   const getStatusBadge = (estado: OportunidadeEstado) => {
     switch (estado) {
-      case 'rascunho':
+      case 'novo_lead':
         return (
           <Badge className="bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-800 flex items-center gap-1">
-            <Clock className="w-3 h-3 text-slate-400" /> Rascunho
+            <Clock className="w-3 h-3 text-slate-400" /> Novo Lead
+          </Badge>
+        )
+      case 'em_preparacao':
+        return (
+          <Badge className="bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-800 flex items-center gap-1">
+            <Clock className="w-3 h-3 text-slate-400" /> Em Preparação
           </Badge>
         )
       case 'em_revisao':
@@ -89,6 +99,18 @@ export default function Painel() {
         return (
           <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20 flex items-center gap-1">
             <Send className="w-3 h-3 text-blue-400" /> Enviado ao Cliente
+          </Badge>
+        )
+      case 'ganho':
+        return (
+          <Badge className="bg-emerald-600/10 text-emerald-300 border-emerald-600/20 hover:bg-emerald-600/20 flex items-center gap-1">
+            <CheckCircle className="w-3 h-3 text-emerald-300" /> Ganho
+          </Badge>
+        )
+      case 'perdido':
+        return (
+          <Badge className="bg-red-900/30 text-red-300 border-red-800/40 hover:bg-red-900/40 flex items-center gap-1">
+            <XCircle className="w-3 h-3 text-red-300" /> Perdido
           </Badge>
         )
       default:
@@ -113,7 +135,7 @@ export default function Painel() {
             <span className="text-xs font-semibold uppercase tracking-wider text-blue-400 bg-blue-950/60 px-2.5 py-0.5 rounded-full border border-blue-800/40">
               {isTSV
                 ? 'Visão Geral TSV (Todos os Leads)'
-                : `Visão do Distribuidor (${user?.distribuidora || 'Meus Leads'})`}
+                : `Visão do Distribuidor (${user?.distribuidor || 'Meus Leads'})`}
             </span>
           </div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { oportunidadeService } from '@/services/oportunidades'
+import { oportunidadeService, usuarioService } from '@/services/oportunidades'
 import { authService } from '@/services/auth'
 import { pacoteService } from '@/services/pacotes'
 import { iaService } from '@/services/ia'
@@ -46,7 +46,7 @@ export default function NovaOportunidade() {
     async function carregar() {
       try {
         setLoadingEquipe(true)
-        const usuarios = await authService.listarEquipe()
+        const usuarios = await usuarioService.listarEquipe()
         setEquipe(usuarios)
         if (!responsavelId && user?.id) {
           setResponsavelId(user.id)
@@ -125,7 +125,7 @@ export default function NovaOportunidade() {
         segmento: form.segmento,
         responsavel: responsavelId || user?.id || '',
         proxima_acao: proximaAcao.trim(),
-        distribuidora: user?.distribuidora || 'Distribuidor Parceiro',
+        distribuidor: user?.distribuidor || undefined,
       })
 
       if (gerarImediatamente) {

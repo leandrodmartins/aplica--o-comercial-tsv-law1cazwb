@@ -1,138 +1,158 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 /**
- * Migração 0007 — PRD "Assistente Comercial Brigade (MVP)", escopo essencial:
- * 1. Papel "revisor" separado + papel "admin" (papeis: admin, tsv, revisor, vendedor).
- * 2. Distribuidor como chave de isolamento: campo "distribuidor" em users e
- *    oportunidades; vendedor só vê dados do próprio distribuidor, TSV/admin/revisor veem tudo.
- * 3. Coleção eventos_trilha: trilha de eventos (quem fez o quê e quando) por oportunidade/pacote.
- * 4. Conta admin inicial provisionada (admin@tsvgrupo.com.br / Admin@Brigade2026)
- *    e conta de revisor de exemplo (revisor@tsvgrupo.com.br / Revisor@Brigade2026).
+ * Migração 0007 — PRD "Assistente Comercial Brigade (MVP)", escopo essencial.
+ *
+ * Defensiva e idempotente: cada passo checa se o campo/coleção/índice já existe
+ * antes de criar (a migração pode rodar sobre um banco já parcialmente migrado),
+ * e cada coleção é acessada dentro de try/catch para não abortar o lote inteiro.
+ *
+ * 1. Papel "revisor" no campo role de users (papeis: admin, tsv, revisor, vendedor).
+ * 2. Campo "distribuidor" em users e oportunidades + regras de isolamento:
+ *    vendedor vê só registros do próprio distribuidor; tsv/admin/revisor veem tudo.
+ * 3. Coleção eventos_trilha: quem fez o quê e quando, por oportunidade/pacote.
+ * 4. Update/create em users somente para role admin/tsv.
+ * 5. Contas iniciais: admin e revisor de exemplo (idempotente por e-mail).
  */
 migrate(
   (app) => {
+    const ROL =
+      "@request.auth.role = 'tsv' || @request.auth.role = 'admin' || @request.auth.role = 'revisor'"
+
+    // ---------- users: papel revisor + campo distribuidor + regras ----------
     const usersCol = app.findCollectionByNameOrId('_pb_users_auth_')
 
-    // Papéis com papel de admin (gestão de usuários) e revisor independente
     const roleField = usersCol.fields.getByName('role')
     if (roleField) {
-      roleField.values = ['admin', 'tsv', 'revisor', 'vendedor']
+      const valores = ['admin', 'tsv', 'revisor', 'vendedor']
+      for (const v of valores) {
+        if (roleField.values.indexOf(v) === -1) roleField.values.push(v)
+      }
     }
 
-    // Campo distribuidor no usuário (chave de isolamento; "distribuidora" texto livre legado permanece)
     if (!usersCol.fields.getByName('distribuidor')) {
       usersCol.fields.add(new TextField({ name: 'distribuidor', required: false }))
     }
 
-    // Apenas admin (e TSV legado) gerencia usuários
+    // Gestão de usuários (create) somente para admin/tsv; update libera o
+    // próprio perfil (sem alterar papel/distribuidor) e admin/tsv sem restrição.
     usersCol.listRule = "@request.auth.id != ''"
     usersCol.viewRule = "@request.auth.id != ''"
     usersCol.createRule = "@request.auth.role = 'admin' || @request.auth.role = 'tsv'"
     usersCol.updateRule =
-      "id = @request.auth.id || @request.auth.role = 'admin' || @request.auth.role = 'tsv'"
+      "(id = @request.auth.id && @request.body.role:changed = false && @request.body.distribuidor:changed = false) || @request.auth.role = 'admin' || @request.auth.role = 'tsv'"
     usersCol.deleteRule = "@request.auth.role = 'admin' || @request.auth.role = 'tsv'"
     app.save(usersCol)
 
-    // Preenche distribuidor dos usuários a partir do campo legado distribuidora
-    const usersLegado = app.findRecordsByFilter(
-      '_pb_users_auth_',
-      "distribuidor = '' && distribuidora != ''",
-      '',
-      0,
-      0,
-    )
-    for (const u of usersLegado) {
-      u.set('distribuidor', u.getString('distribuidora'))
-      app.save(u)
-    }
-
-    // Papéis com acesso total (não sofrem isolamento por distribuidor)
-    const ROLE_SEM_ISOLAMENTO = [
-      "@request.auth.role = 'tsv'",
-      "@request.auth.role = 'admin'",
-      "@request.auth.role = 'revisor'",
-    ].join(' || ')
-
-    // ---- Oportunidades: campo distribuidor + regras por distribuidor ----
-    const opsCol = app.findCollectionByNameOrId('oportunidades')
-    if (!opsCol.fields.getByName('distribuidor')) {
-      opsCol.fields.add(new TextField({ name: 'distribuidor', required: false }))
-    }
-    const visivelVendedorOp =
-      "(@request.auth.role = 'vendedor' && distribuidor != '' && distribuidor = @request.auth.distribuidor)"
-    const regraLeituraOp = `@request.auth.id != '' && (${ROLE_SEM_ISOLAMENTO} || ${visivelVendedorOp})`
-    opsCol.listRule = regraLeituraOp
-    opsCol.viewRule = regraLeituraOp
-    opsCol.createRule = `@request.auth.id != '' && (${ROLE_SEM_ISOLAMENTO} || @request.auth.role = 'vendedor')`
-    opsCol.updateRule = regraLeituraOp
-    opsCol.deleteRule = "@request.auth.role = 'admin' || @request.auth.role = 'tsv'"
-    // Em v0.23 collection.indexes é um array de strings SQL (sem getByName):
-    // verifica presença pelo texto do índice.
-    let temIdxDistribuidor = false
-    for (let i = 0; i < opsCol.indexes.size(); i++) {
-      if (String(opsCol.indexes.get(i)).indexOf('idx_oportunidades_distribuidor') !== -1) {
-        temIdxDistribuidor = true
-      }
-    }
-    if (!temIdxDistribuidor) {
-      opsCol.indexes.add(
-        'CREATE INDEX idx_oportunidades_distribuidor ON oportunidades (distribuidor)',
+    // Backfill: preenche distribuidor dos usuários a partir do campo legado
+    try {
+      const usersLegado = app.findRecordsByFilter(
+        '_pb_users_auth_',
+        "distribuidor = '' && distribuidora != ''",
+        '',
+        0,
+        0,
       )
+      for (const u of usersLegado) {
+        u.set('distribuidor', u.getString('distribuidora'))
+        app.save(u)
+      }
+    } catch (err) {
+      console.warn('[0007] backfill distribuidor de users falhou (seguindo):', err)
     }
-    app.save(opsCol)
 
-    // Backfill: herda o distribuidor do responsável quando o campo veio vazio
-    const opsSemDistribuidor = app.findRecordsByFilter(
-      'oportunidades',
-      "distribuidor = '' && responsavel != ''",
-      '',
-      0,
-      0,
-    )
-    for (const op of opsSemDistribuidor) {
+    // ---------- oportunidades: campo distribuidor + regras + índice ----------
+    let opsColId = ''
+    try {
+      const opsCol = app.findCollectionByNameOrId('oportunidades')
+      opsColId = opsCol.id
+
+      if (!opsCol.fields.getByName('distribuidor')) {
+        opsCol.fields.add(new TextField({ name: 'distribuidor', required: false }))
+      }
+
+      const visivelVendedor =
+        "(@request.auth.role = 'vendedor' && distribuidor != '' && distribuidor = @request.auth.distribuidor)"
+      const regraLeitura = `@request.auth.id != '' && (${ROL} || ${visivelVendedor})`
+      opsCol.listRule = regraLeitura
+      opsCol.viewRule = regraLeitura
+      opsCol.createRule = `@request.auth.id != '' && (${ROL} || @request.auth.role = 'vendedor')`
+      opsCol.updateRule = regraLeitura
+      opsCol.deleteRule = "@request.auth.role = 'admin' || @request.auth.role = 'tsv'"
+
+      // Idempotente: col.addIndex não duplica índice existente.
+      opsCol.addIndex('idx_oportunidades_distribuidor', false, 'distribuidor', '')
+
+      app.save(opsCol)
+
+      // Backfill: herda o distribuidor do responsável quando o campo veio vazio
       try {
-        const resp = app.findRecordById('_pb_users_auth_', op.getString('responsavel'))
-        const dist = resp.getString('distribuidor')
-        if (dist) {
-          op.set('distribuidor', dist)
-          app.save(op)
+        const opsSemDistribuidor = app.findRecordsByFilter(
+          'oportunidades',
+          "distribuidor = '' && responsavel != ''",
+          '',
+          0,
+          0,
+        )
+        for (const op of opsSemDistribuidor) {
+          try {
+            const resp = app.findRecordById('_pb_users_auth_', op.getString('responsavel'))
+            const dist = resp.getString('distribuidor')
+            if (dist) {
+              op.set('distribuidor', dist)
+              app.save(op)
+            }
+          } catch (_) {}
         }
-      } catch (_) {}
+      } catch (err) {
+        console.warn('[0007] backfill distribuidor de oportunidades falhou (seguindo):', err)
+      }
+    } catch (err) {
+      console.warn('[0007] ajuste de oportunidades falhou (seguindo):', err)
     }
 
-    // ---- Pacotes: regras seguem o distribuidor da oportunidade ----
-    const pacCol = app.findCollectionByNameOrId('pacotes')
-    const visivelVendedorPac =
-      "(@request.auth.role = 'vendedor' && oportunidade.distribuidor != '' && oportunidade.distribuidor = @request.auth.distribuidor)"
-    const regraLeituraPac = `@request.auth.id != '' && (${ROLE_SEM_ISOLAMENTO} || ${visivelVendedorPac})`
-    pacCol.listRule = regraLeituraPac
-    pacCol.viewRule = regraLeituraPac
-    pacCol.createRule = `@request.auth.id != '' && (${ROLE_SEM_ISOLAMENTO} || @request.auth.role = 'vendedor')`
-    pacCol.updateRule = regraLeituraPac
-    pacCol.deleteRule = "@request.auth.role = 'admin' || @request.auth.role = 'tsv'"
-    app.save(pacCol)
+    // ---------- pacotes: regras seguem o distribuidor da oportunidade ----------
+    let pacColId = ''
+    try {
+      const pacCol = app.findCollectionByNameOrId('pacotes')
+      pacColId = pacCol.id
 
-    // ---- Pacote_arquivos: regras seguem o distribuidor da oportunidade ----
+      const visivelVendedor =
+        "(@request.auth.role = 'vendedor' && oportunidade.distribuidor != '' && oportunidade.distribuidor = @request.auth.distribuidor)"
+      const regraLeitura = `@request.auth.id != '' && (${ROL} || ${visivelVendedor})`
+      pacCol.listRule = regraLeitura
+      pacCol.viewRule = regraLeitura
+      pacCol.createRule = `@request.auth.id != '' && (${ROL} || @request.auth.role = 'vendedor')`
+      pacCol.updateRule = regraLeitura
+      pacCol.deleteRule = "@request.auth.role = 'admin' || @request.auth.role = 'tsv'"
+      app.save(pacCol)
+    } catch (err) {
+      console.warn('[0007] ajuste de pacotes falhou (seguindo):', err)
+    }
+
+    // ---------- pacote_arquivos: regras via pacote.oportunidade.distribuidor ----------
     try {
       const arqCol = app.findCollectionByNameOrId('pacote_arquivos')
-      const visivelVendedorArq =
+      const visivelVendedor =
         "(@request.auth.role = 'vendedor' && pacote.oportunidade.distribuidor != '' && pacote.oportunidade.distribuidor = @request.auth.distribuidor)"
-      const regraLeituraArq = `@request.auth.id != '' && (${ROLE_SEM_ISOLAMENTO} || ${visivelVendedorArq})`
-      arqCol.listRule = regraLeituraArq
-      arqCol.viewRule = regraLeituraArq
-      arqCol.createRule = `@request.auth.id != '' && (${ROLE_SEM_ISOLAMENTO} || @request.auth.role = 'vendedor')`
-      arqCol.updateRule = regraLeituraArq
+      const regraLeitura = `@request.auth.id != '' && (${ROL} || ${visivelVendedor})`
+      arqCol.listRule = regraLeitura
+      arqCol.viewRule = regraLeitura
+      arqCol.createRule = `@request.auth.id != '' && (${ROL} || @request.auth.role = 'vendedor')`
+      arqCol.updateRule = regraLeitura
       arqCol.deleteRule = "@request.auth.role = 'admin' || @request.auth.role = 'tsv'"
       app.save(arqCol)
-    } catch (_) {}
+    } catch (err) {
+      console.warn('[0007] ajuste de pacote_arquivos falhou (seguindo):', err)
+    }
 
-    // ---- Trilha de eventos (quem fez o quê e quando) ----
+    // ---------- eventos_trilha: coleção nova (só se ainda não existir) ----------
     if (!app.hasTable('eventos_trilha')) {
       const eventos = new Collection({
         name: 'eventos_trilha',
         type: 'base',
-        listRule: `@request.auth.id != '' && (${ROLE_SEM_ISOLAMENTO} || oportunidade.distribuidor = @request.auth.distribuidor)`,
-        viewRule: `@request.auth.id != '' && (${ROLE_SEM_ISOLAMENTO} || oportunidade.distribuidor = @request.auth.distribuidor)`,
+        listRule: `@request.auth.id != '' && (${ROL} || oportunidade.distribuidor = @request.auth.distribuidor)`,
+        viewRule: `@request.auth.id != '' && (${ROL} || oportunidade.distribuidor = @request.auth.distribuidor)`,
         createRule: "@request.auth.id != ''",
         updateRule: null,
         deleteRule: null,
@@ -141,7 +161,7 @@ migrate(
             name: 'oportunidade',
             type: 'relation',
             required: true,
-            collectionId: opsCol.id,
+            collectionId: opsColId || app.findCollectionByNameOrId('oportunidades').id,
             cascadeDelete: true,
             maxSelect: 1,
           },
@@ -149,7 +169,7 @@ migrate(
             name: 'pacote',
             type: 'relation',
             required: false,
-            collectionId: pacCol.id,
+            collectionId: pacColId || app.findCollectionByNameOrId('pacotes').id,
             cascadeDelete: true,
             maxSelect: 1,
           },
@@ -174,14 +194,14 @@ migrate(
       app.save(eventos)
     }
 
-    // ---- Contas iniciais: admin e revisor ----
+    // ---------- Contas iniciais: admin e revisor (idempotente por e-mail) ----------
     const garantirUsuario = (email, senha, nome, role, distribuidor, cargo) => {
       let rec = null
       try {
         rec = app.findAuthRecordByEmail('_pb_users_auth_', email)
       } catch (_) {}
       if (!rec) {
-        rec = new Record(usersCol)
+        rec = new Record(app.findCollectionByNameOrId('_pb_users_auth_'))
         rec.setEmail(email)
         rec.setPassword(senha)
         rec.setVerified(true)

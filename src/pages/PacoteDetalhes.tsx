@@ -558,28 +558,7 @@ export default function PacoteDetalhes() {
               versaoArquivos={versaoGerador}
             />
             {pacote.apresentacao_slides && pacote.apresentacao_slides.length > 0 && (
-              <Card className="bg-slate-900/60 border-slate-800">
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {pacote.apresentacao_slides.map((slide, idx) => (
-                    <div
-                      key={idx}
-                      className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 flex flex-col justify-between space-y-3 relative overflow-hidden"
-                    >
-                      <div className="flex items-center justify-between text-[11px] text-slate-500 border-b border-slate-800/60 pb-2">
-                        <span className="font-semibold text-blue-400 uppercase tracking-wider">
-                          Slide {idx + 1}
-                        </span>
-                        <span>Brigade TSV</span>
-                      </div>
-                      <div className="space-y-1.5">
-                        <h5 className="text-xs font-bold text-white">{slide.titulo}</h5>
-                        <p className="text-xs text-slate-300 leading-relaxed">{slide.conteudo}</p>
-                      </div>
-                      <div className="h-1 bg-gradient-to-r from-blue-600 to-amber-500 rounded-full w-12" />
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+              <Card className="bg-slate-900/60 border-slate-800"></Card>
             )}
           </TabsContent>
 

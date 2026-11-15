@@ -249,7 +249,9 @@ export default function Equipe() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="nome">Nome</Label>
+              <Label htmlFor="nome" className="text-foreground">
+                Nome
+              </Label>
               <Input
                 id="nome"
                 value={form.name}
@@ -259,7 +261,9 @@ export default function Equipe() {
               {erros.name && <p className="text-xs text-destructive">{erros.name}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="email">E-mail</Label>
+              <Label htmlFor="email" className="text-foreground">
+                E-mail
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -271,7 +275,7 @@ export default function Equipe() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Papel</Label>
+                <Label className="text-foreground">Papel</Label>
                 <Select
                   value={form.role}
                   onValueChange={(v) => setForm({ ...form, role: v as UserRole })}
@@ -289,7 +293,9 @@ export default function Equipe() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="dist">Distribuidor</Label>
+                <Label htmlFor="dist" className="text-foreground">
+                  Distribuidor
+                </Label>
                 <Input
                   id="dist"
                   value={form.distribuidor}
@@ -302,7 +308,9 @@ export default function Equipe() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="cargo">Cargo (opcional)</Label>
+              <Label htmlFor="cargo" className="text-foreground">
+                Cargo (opcional)
+              </Label>
               <Input
                 id="cargo"
                 value={form.cargo}

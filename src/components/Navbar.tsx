@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import { useState } from 'react'
+import ThemeToggle from '@/components/ThemeToggle'
 
 export default function Navbar() {
   const { user, logout, isTSV, isAdmin } = useAuth()
@@ -83,6 +84,7 @@ export default function Navbar() {
 
         {/* User profile & actions */}
         <div className="hidden md:flex items-center gap-3">
+          <ThemeToggle />
           {user && (
             <div className="flex items-center gap-2.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800">
               <div className="text-right">
@@ -118,6 +120,7 @@ export default function Navbar() {
 
         {/* Mobile menu trigger */}
         <div className="flex md:hidden items-center gap-2">
+          <ThemeToggle />
           <Button
             variant="ghost"
             size="icon"

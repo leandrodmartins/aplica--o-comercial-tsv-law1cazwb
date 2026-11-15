@@ -31,17 +31,46 @@ export const pacoteService = {
 
   /**
    * Hook gerar-pptx: POST /backend/v1/gerar-pptx com { pacote_id }.
-   * Retorna o arquivo .pptx como Blob (Content-Type de apresentação PowerPoint).
+   * Retorna o arquivo .pptx como Blob.
+   *
+   * Usa fetch() nativo em vez de pb.send(): o SDK PocketBase não suporta
+   * responseType='blob' (a opção desconhecida vira query string e a resposta
+   * binária é tratada como JSON, corrompendo o download). O token de auth vai
+   * no header Authorization, como o hook exigiria via e.auth.
    */
   async baixarPptx(pacoteId: string): Promise<{ blob: Blob; filename: string }> {
-    const resposta = await pb.send('backend/v1/gerar-pptx', {
+    const token = pb.authStore.token
+    if (!token) throw new Error('Sessão expirada. Faça login novamente.')
+
+    const base = pb.buildURL('')
+    const resposta = await fetch(`${base}backend/v1/gerar-pptx`, {
       method: 'POST',
-      body: { pacote_id: pacoteId },
-      responseType: 'blob' as any,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: token,
+      },
+      body: JSON.stringify({ pacote_id: pacoteId }),
     })
-    const blob =
-      resposta instanceof Blob ? resposta : new Blob([resposta as any], { type: 'text/plain' })
-    const filename = `Apresentacao-Brigade-${pacoteId.slice(0, 8)}.pptx`
+
+    if (!resposta.ok) {
+      let detalhe = `HTTP ${resposta.status}`
+      try {
+        const texto = await resposta.text()
+        const json = JSON.parse(texto) as { error?: string }
+        if (json.error) detalhe = json.error
+      } catch (_) {
+        // corpo não-JSON: mantém o status HTTP
+      }
+      throw new Error(detalhe)
+    }
+
+    const blob = await resposta.blob()
+    if (blob.size === 0) throw new Error('Resposta vazia do servidor ao gerar o arquivo.')
+
+    // O hook envia Content-Disposition attachment; aproveitamos o nome, com fallback.
+    const disposition = resposta.headers.get('Content-Disposition') || ''
+    const match = /filename="?([^";]+)"?/i.exec(disposition)
+    const filename = match?.[1] || `Apresentacao-Brigade-${pacoteId.slice(0, 8)}.pptx`
     return { blob, filename }
   },
 

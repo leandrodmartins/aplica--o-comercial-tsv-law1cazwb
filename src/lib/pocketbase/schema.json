@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-15T17:13:00.366Z",
+  "generatedAt": "2026-11-15T17:39:02.182Z",
   "collections": [
     {
       "name": "users",
@@ -414,6 +414,75 @@
       "indexes": [
         "CREATE INDEX idx_pacotes_oportunidade ON pacotes (oportunidade)",
         "CREATE INDEX idx_pacotes_status ON pacotes (status_revisao)"
+      ]
+    },
+    {
+      "name": "pacote_arquivos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && (@request.auth.role = 'tsv' || pacote.oportunidade.responsavel = @request.auth.id)",
+        "view": "@request.auth.id != '' && (@request.auth.role = 'tsv' || pacote.oportunidade.responsavel = @request.auth.id)",
+        "create": "@request.auth.id != '' && @request.auth.role = 'tsv' && pacote.oportunidade.responsavel != ''",
+        "update": "@request.auth.id != '' && @request.auth.role = 'tsv' && pacote.oportunidade.responsavel != ''",
+        "delete": "@request.auth.id != '' && @request.auth.role = 'tsv'"
+      },
+      "fields": [
+        {
+          "name": "pacote",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "pacotes"
+        },
+        {
+          "name": "enviado_por",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "nome",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "tipo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "tamanho",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "arquivo",
+          "type": "file",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_pacote_arquivos_pacote ON pacote_arquivos (pacote)",
+        "CREATE INDEX idx_pacote_arquivos_enviado_por ON pacote_arquivos (enviado_por)"
       ]
     }
   ]

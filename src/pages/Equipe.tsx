@@ -120,8 +120,8 @@ export default function Equipe() {
     setSalvando(true)
     setErros({})
     // Edição só trata nome, e-mail, papel, distribuidor e cargo — nunca senha.
-    // Se o PocketBase devolver um erro de senha (payload inesperado), a causa
-    // real é mostrada e o erro não é atribuído a campos que não existem aqui.
+    // A criação não define senha: o acesso é pelo e-mail de "definir senha".
+    // Erros voltam traduzidos e específicos das rotas dedicadas no servidor.
     try {
       const dados: DadosUsuario = {
         name: form.name.trim(),

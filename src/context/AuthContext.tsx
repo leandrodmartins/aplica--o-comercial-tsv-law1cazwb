@@ -32,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (email: string, pass: string) => {
+    // Assinatura deve casar com CredenciaisLogin ({ email, password }) — ponto de falha anterior do typecheck.
     const loggedUser = await authService.login({ email, password: pass })
     setUser(loggedUser)
     return loggedUser

@@ -62,6 +62,8 @@ interface Props {
   /** Regerar .pptx do pacote (IA) — somente TSV; futuro: geração sob demanda por IA. */
   onGerarPptx?: () => void
   gerandoPptx?: boolean
+  /** Incrementado pelo pai quando um arquivo é gerado/registrado fora daqui — remonta a lista. */
+  versaoArquivos?: number
 }
 
 /**
@@ -69,7 +71,12 @@ interface Props {
  * lista de arquivos com nome/tamanho/data/quem enviou, download para todos
  * e upload restrito ao papel TSV (gestor). Vendedor só baixa.
  */
-export default function GerenciadorArquivos({ pacoteId, onGerarPptx, gerandoPptx }: Props) {
+export default function GerenciadorArquivos({
+  pacoteId,
+  onGerarPptx,
+  gerandoPptx,
+  versaoArquivos = 0,
+}: Props) {
   const { user, isTSV } = useAuth()
   const [arquivos, setArquivos] = useState<PacoteArquivo[]>([])
   const [carregando, setCarregando] = useState(true)
@@ -95,6 +102,13 @@ export default function GerenciadorArquivos({ pacoteId, onGerarPptx, gerandoPptx
     carregar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pacoteId])
+
+  // O .pptx gerado é gravado server-side no gestor de arquivos; quando o pai
+  // avisa (versaoArquivos), recarrega a lista para ele aparecer.
+  useEffect(() => {
+    if (versaoArquivos > 0) carregar()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [versaoArquivos])
 
   const handleSelecionar = async (f: File | undefined) => {
     if (!f || !user) return

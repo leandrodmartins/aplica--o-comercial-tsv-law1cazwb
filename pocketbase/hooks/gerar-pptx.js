@@ -28,18 +28,88 @@ routerAdd(
         return e.forbiddenError('Apenas o responsavel ou a TSV pode baixar a apresentacao')
       }
 
+      const empresa = oportunidade.getString('empresa') || 'Cliente'
+      const aplicacao = oportunidade.getString('aplicacao') || 'aplicacao operacional'
+
       let slides = []
       try {
         const raw = pacote.get('apresentacao_slides')
-        slides = typeof raw === 'string' ? JSON.parse(raw) : raw || []
-      } catch (_) {
+        if (typeof raw === 'string') {
+          slides = JSON.parse(raw)
+        } else if (raw && typeof raw.length === 'number') {
+          // no JSVM, record.get() num campo json devolve os bytes crus — converte
+          let texto = ''
+          for (let i = 0; i < raw.length; i++) texto += String.fromCharCode(raw[i])
+          slides = JSON.parse(texto)
+        }
+      } catch (err) {
+        console.log('Falha ao ler apresentacao_slides do pacote ' + pacoteId + ':', err)
         slides = []
       }
-      if (!Array.isArray(slides) || slides.length === 0) {
-        return e.badRequestError('Este pacote nao tem slides de apresentacao gerados')
+      if (!Array.isArray(slides)) slides = []
+
+      // Normaliza os slides (titulo + conteudo em texto)
+      slides = slides
+        .map((s) => ({
+          titulo: String(s?.titulo || ''),
+          conteudo: String(s?.conteudo || ''),
+        }))
+        .filter((s) => s.titulo || s.conteudo)
+
+      // Fallback: quando o pacote ainda nao tem slides, monta um roteiro minimo
+      // a partir do briefing e das perguntas do pacote — o vendedor nunca fica
+      // sem apresentacao para baixar.
+      if (slides.length === 0) {
+        const limparHtml = (html) =>
+          String(html || '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+        const contexto = limparHtml(pacote.getString('briefing_contexto')).slice(0, 600)
+        const hipoteses = limparHtml(pacote.getString('briefing_hipoteses')).slice(0, 600)
+        const riscos = limparHtml(pacote.getString('briefing_riscos')).slice(0, 400)
+        slides = [
+          { titulo: 'Desafio Tecnico: ' + empresa, conteudo: contexto || aplicacao },
+          {
+            titulo: 'Solucao Brigade Recomendada',
+            conteudo: hipoteses || 'Solucoes de seguranca veicular Brigade para ' + aplicacao,
+          },
+          {
+            titulo: 'Riscos Mitigados e Proximo Passo',
+            conteudo: riscos || 'Proposta de teste piloto com acompanhamento tecnico TSV',
+          },
+        ]
       }
 
-      const empresa = oportunidade.getString('empresa') || 'Cliente'
+      // Enriquece com perguntas do pacote como bullests no slide correspondente
+      try {
+        let perguntas = []
+        const rawP = pacote.get('perguntas_priorizadas')
+        if (typeof rawP === 'string') {
+          perguntas = JSON.parse(rawP)
+        } else if (rawP && typeof rawP.length === 'number') {
+          let texto = ''
+          for (let i = 0; i < rawP.length; i++) texto += String.fromCharCode(rawP[i])
+          perguntas = JSON.parse(texto)
+        }
+        if (Array.isArray(perguntas) && perguntas.length > 0 && slides.length > 0) {
+          const lista = perguntas
+            .slice(0, 5)
+            .map((p) => '• ' + String(p?.pergunta || '').trim())
+            .filter((l) => l !== '• ')
+            .join('\n')
+          if (lista) {
+            slides[slides.length - 1].conteudo =
+              (slides[slides.length - 1].conteudo
+                ? slides[slides.length - 1].conteudo + '\n'
+                : '') +
+              'Perguntas de discovery a cobrir:\n' +
+              lista
+          }
+        }
+      } catch (_) {
+        // perguntas são opcionais no slide
+      }
 
       // ---------- Helpers ----------
       const esc = (s) =>
@@ -303,6 +373,29 @@ ${todos
         'Apresentacao-Brigade-' +
         empresa.replace(/[^\w\-]+/g, '-').replace(/^-+|-+$/g, '') +
         '.pptx'
+
+      // Registra o arquivo gerado no gestor de arquivos do pacote (colecao
+      // pacote_arquivos). Feito server-side para nao depender de um PATCH do
+      // proprio cliente (o PATCH 400 visto nos logs). O mimetype detectado de
+      // um zip (pptx) e application/zip, fora da lista de mimeTypes do campo —
+      // por isso saveNoValidate, que salva o registro e o arquivo.
+      try {
+        const autor = e.auth
+        const registroArquivo = new Record($app.findCollectionByNameOrId('pacote_arquivos'))
+        registroArquivo.set('pacote', pacoteId)
+        registroArquivo.set('enviado_por', authId)
+        registroArquivo.set('nome', nomeArquivo)
+        registroArquivo.set(
+          'tipo',
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        )
+        registroArquivo.set('tamanho', bytes.length)
+        registroArquivo.set('arquivo', $filesystem.fileFromBytes(bytes, nomeArquivo))
+        $app.saveNoValidate(registroArquivo)
+      } catch (errArquivo) {
+        // Falha ao registrar NAO pode impedir o download pelo cliente
+        console.log('Aviso: nao foi possivel registrar o pptx em pacote_arquivos:', errArquivo)
+      }
 
       e.response.header().set('Content-Disposition', 'attachment; filename="' + nomeArquivo + '"')
       return e.blob(

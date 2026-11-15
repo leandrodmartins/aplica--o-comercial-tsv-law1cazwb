@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext'
 import { oportunidadeService } from '@/services/oportunidades'
 import { pacoteService } from '@/services/pacotes'
 import GerenciadorArquivos from '@/components/pacotes/GerenciadorArquivos'
+import { montarPromptApresentacao } from '@/lib/promptApresentacao'
 import { Oportunidade, PacotePreparacao } from '@/types/tsv'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -44,7 +45,10 @@ export default function PacoteDetalhes() {
   const [gerando, setGerando] = useState(false)
   const [marcandoEnviado, setMarcandoEnviado] = useState(false)
   const [copiado, setCopiado] = useState(false)
+  const [copiadoPrompt, setCopiadoPrompt] = useState(false)
   const [gerandoPptx, setGerandoPptx] = useState(false)
+  /** Incrementa a cada geração — remonta o gestor de arquivos para o .pptx gerado aparecer. */
+  const [versaoGerador, setVersaoGerador] = useState(0)
 
   const carregarDados = async () => {
     if (!id) return
@@ -93,6 +97,9 @@ export default function PacoteDetalhes() {
     if (!pacote) return
     try {
       setGerandoPptx(true)
+      // O hook server-side registra o arquivo gerado no gestor de arquivos do pacote;
+      // incrementar versaoGerador remonta o gerenciador para ele aparecer na lista.
+      setVersaoGerador((v) => v + 1)
       const { blob, filename } = await pacoteService.baixarPptx(pacote.id)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -106,6 +113,20 @@ export default function PacoteDetalhes() {
       alert(err.message || 'Falha ao baixar a apresentação PowerPoint')
     } finally {
       setGerandoPptx(false)
+    }
+  }
+
+  const promptApresentacao =
+    oportunidade && pacote ? montarPromptApresentacao(oportunidade, pacote) : ''
+
+  const handleCopiarPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(promptApresentacao)
+      setCopiadoPrompt(true)
+      setTimeout(() => setCopiadoPrompt(false), 2000)
+    } catch (err: any) {
+      console.error('Erro ao copiar o prompt:', err)
+      alert('Não foi possível copiar o prompt. Selecione o texto manualmente.')
     }
   }
 
@@ -489,12 +510,53 @@ export default function PacoteDetalhes() {
 
           {/* TAB 4: GESTOR DE ARQUIVOS DA APRESENTAÇÃO */}
           <TabsContent value="apresentacao" className="space-y-4">
+            {/* Prompt pronto para colar em chat de IA externo */}
+            <Card className="bg-slate-900/60 border-slate-800">
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <div>
+                  <CardTitle className="text-base text-white flex items-center gap-2">
+                    <Presentation className="w-4 h-4 text-amber-400" />
+                    Prompt da Apresentação — copie e cole em qualquer chat de IA
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-400">
+                    Prompt montado com o contexto completo do pacote (lead, aplicação, briefing,
+                    perguntas e referências Brigade). Cole no ChatGPT, Gemini ou Claude para gerar
+                    os slides — ou use o botão "Gerar .pptx" do gestor abaixo.
+                  </CardDescription>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCopiarPrompt}
+                  className="border-slate-800 text-xs bg-slate-950 text-slate-300 hover:text-white shrink-0"
+                >
+                  {copiadoPrompt ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 mr-1.5 text-emerald-400" /> Copiado!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 mr-1.5" /> Copiar prompt
+                    </>
+                  )}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <textarea
+                  readOnly
+                  value={promptApresentacao}
+                  rows={10}
+                  className="w-full rounded-lg border border-slate-800 bg-slate-950/70 p-3 font-mono text-[11px] leading-relaxed text-slate-300 resize-y focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                />
+              </CardContent>
+            </Card>
+
             <GerenciadorArquivos
               pacoteId={pacote.id}
               onGerarPptx={handleGerarPptx}
               gerandoPptx={gerandoPptx}
+              versaoArquivos={versaoGerador}
             />
-
             {pacote.apresentacao_slides && pacote.apresentacao_slides.length > 0 && (
               <Card className="bg-slate-900/60 border-slate-800">
                 <CardHeader>

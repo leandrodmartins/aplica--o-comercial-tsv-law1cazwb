@@ -5,6 +5,7 @@
  *   GET  /backend/v1/usuarios-equipe/listar
  *   POST /backend/v1/usuarios-equipe/criar
  *   POST /backend/v1/usuarios-equipe/atualizar
+ *   POST /backend/v1/usuarios-equipe/reset-senha
  *
  * A rota "listar" existe porque o CRUD nativo da coleção users oculta o campo
  * email dos registros de auth na API para quem não é o dono do registro (mesmo
@@ -134,6 +135,82 @@ routerAdd(
       created: rec.getString('created'),
       updated: rec.getString('updated'),
     })
+  },
+  $apis.requireAuth(),
+)
+
+// Dispara o e-mail nativo de redefinição de senha do PocketBase para o usuário
+// da equipe. Existe porque o requestPasswordReset nativo feito pelo NAVEGADOR
+// nunca chegava a registrar chamada no servidor; por hook, com o mesmo
+// mecanismo do PocketBase, o envio acontece de fato. O template/link enviado
+// é o do hook reset-senha-email.pb.js (onMailerRecordPasswordResetSend), que
+// aponta para a página /redefinir-senha do app. Somente admin/tsv.
+routerAdd(
+  'POST',
+  '/backend/v1/usuarios-equipe/reset-senha',
+  (e) => {
+    const auth = e.auth
+    if (!auth) return e.unauthorizedError('Faça login para gerenciar usuários.')
+    const papelAuth = auth.getString('role')
+    if (papelAuth !== 'admin' && papelAuth !== 'tsv') {
+      return e.forbiddenError('Somente administradores e TSV podem enviar o e-mail de senha.')
+    }
+
+    const body = e.requestInfo().body || {}
+    let email = String(body.email ?? '')
+      .trim()
+      .toLowerCase()
+    const id = String(body.id ?? '').trim()
+
+    if (!email && !id) {
+      return e.badRequestError('Informe o e-mail do usuário.')
+    }
+
+    // Localiza o registro: por e-mail, ou por id (e pega o e-mail dele).
+    // ATENÇÃO: findAuthRecordByEmail/findRecordById LANÇAM ("sql: no rows")
+    // quando não encontram — nunca devolvem null — então a busca é try/catch.
+    let rec = null
+    if (email) {
+      if (email.indexOf('@') < 1 || email.indexOf('.') < 0) {
+        return e.badRequestError('E-mail inválido.')
+      }
+      try {
+        rec = $app.findAuthRecordByEmail('users', email)
+      } catch (_) {
+        return e.notFoundError('Usuário não encontrado para este e-mail.')
+      }
+    } else {
+      try {
+        rec = $app.findRecordById('users', id)
+      } catch (_) {
+        return e.notFoundError('Usuário não encontrado.')
+      }
+      email = rec.getString('email')
+      if (!email) {
+        return e.badRequestError(
+          'Este usuário está sem e-mail cadastrado — edite o cadastro e informe um e-mail antes de enviar o link de senha.',
+        )
+      }
+    }
+
+    if (!rec.getString('email')) {
+      return e.badRequestError(
+        'Este usuário está sem e-mail cadastrado — edite o cadastro e informe um e-mail antes de enviar o link de senha.',
+      )
+    }
+
+    // Envia pelo mecanismo nativo do PocketBase (mesmo fluxo do
+    // requestPasswordReset) — passa pelo onMailerRecordPasswordResetSend,
+    // que aplica o template/link do app (/redefinir-senha).
+    try {
+      $mails.sendRecordPasswordReset($app, rec)
+    } catch (err) {
+      const msg = String(err && err.message ? err.message : err)
+      console.warn('[usuarios-equipe] falha ao enviar e-mail de senha:', msg)
+      return e.badRequestError('Não foi possível enviar o e-mail de definição de senha: ' + msg)
+    }
+
+    return e.json(200, { ok: true, email: rec.getString('email') })
   },
   $apis.requireAuth(),
 )

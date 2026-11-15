@@ -109,11 +109,14 @@ export const usuarioService = {
 
   /**
    * Envia por e-mail o link nativo de redefinição de senha do PocketBase
-   * (requestPasswordReset). O próprio usuário define a senha pelo link — sem
-   * repasse manual de senha pela tela.
+   * (requestPasswordReset) — via rota dedicada do backend (POST
+   * /backend/v1/usuarios-equipe/reset-senha, pb_hooks). O requestPasswordReset
+   * nativo feito pelo navegador não disparava envio; no servidor o mecanismo
+   * nativo roda de fato (template/link do hook reset-senha-email.pb.js).
+   * O próprio usuário define a senha pelo link — sem repasse manual de senha.
    */
   async enviarResetSenha(email: string): Promise<void> {
-    await pb.collection(COLECAO).requestPasswordReset(email)
+    await chamarRota('/backend/v1/usuarios-equipe/reset-senha', { email })
   },
 
   /** Confirma a redefinição com o token recebido por e-mail (página de redefinição). */

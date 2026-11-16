@@ -14,9 +14,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { ShieldCheck, Lock, Mail, ArrowRight, UserCheck, CheckCircle2 } from 'lucide-react'
+import { Lock, Mail, ArrowRight, UserCheck, CheckCircle2 } from 'lucide-react'
 import ThemeToggle from '@/components/ThemeToggle'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
+import iconeTsv from '@/assets/tsv-4364f.png'
 
 /** Tela pública de login (e fluxo "Esqueci minha senha" integrado). */
 export default function Login() {
@@ -102,8 +103,8 @@ export default function Login() {
         {/* Brand header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl mb-4">
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-2.5 rounded-xl text-white">
-              <ShieldCheck className="w-8 h-8" />
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-2.5 rounded-xl">
+              <img src={iconeTsv} alt="TSV Grupo" className="w-8 h-8 object-contain" />
             </div>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center justify-center gap-2">

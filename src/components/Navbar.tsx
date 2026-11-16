@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ROTULO_PAPEL } from '@/types/tsv'
 import {
-  ShieldCheck,
   LayoutDashboard,
   PlusCircle,
   FileCheck2,
@@ -17,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import ThemeToggle from '@/components/ThemeToggle'
+import iconeTsv from '@/assets/tsv-4364f.png'
 
 export default function Navbar() {
   const { user, logout, isTSV, isAdmin } = useAuth()
@@ -43,8 +43,8 @@ export default function Navbar() {
         {/* Brand */}
         <div className="flex items-center gap-6">
           <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="p-2 rounded-lg bg-blue-600/20 border border-blue-500/30 text-blue-400 group-hover:bg-blue-600/30 transition">
-              <ShieldCheck className="w-5 h-5" />
+            <div className="p-2 rounded-lg bg-blue-600/20 border border-blue-500/30 dark:bg-blue-100/90 dark:border-blue-300/40 group-hover:bg-blue-600/30 dark:group-hover:bg-blue-200 dark:[&>img]:mix-blend-multiply transition">
+              <img src={iconeTsv} alt="TSV Grupo" className="w-5 h-5 object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-2">

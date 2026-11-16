@@ -10,10 +10,12 @@
  * JSVM — o registro falhava e o e-mail nunca partia com o template do app.
  *
  * Toda a lógica fica inline no callback (exigência do JSVM do PocketBase).
+ * O token de redefinição NÃO fica em e.token (não existe nesse evento) —
+ * fica em e.meta.token, como no evento nativo do PocketBase.
  */
 onMailerRecordPasswordResetSend((e) => {
   const appUrl = ($os.getenv('SITE_URL') || $os.getenv('PB_INSTANCE_URL') || '').replace(/\/$/, '')
-  const token = e.token || ''
+  const token = (e.meta && e.meta.token) || ''
   const link = appUrl ? appUrl + '/redefinir-senha/' + encodeURIComponent(token) : e.url // fallback: URL de confirmação nativa do PocketBase
 
   // ATENÇÃO JSVM: Record não tem métodos .name()/.email() — acessar esses

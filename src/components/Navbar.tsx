@@ -8,6 +8,7 @@ import {
   PlusCircle,
   FileCheck2,
   FolderArchive,
+  BookOpen,
   Users,
   LogOut,
   Building2,
@@ -34,6 +35,7 @@ export default function Navbar() {
     { label: 'Nova Oportunidade', path: '/nova-oportunidade', icon: PlusCircle },
     { label: 'Revisão Técnica', path: '/revisao', icon: FileCheck2 },
     { label: 'Acervo Técnico', path: '/acervo', icon: FolderArchive },
+    { label: 'Manual', path: '/manual', icon: BookOpen },
     ...(isAdmin ? [{ label: 'Equipe', path: '/equipe', icon: Users }] : []),
   ]
 

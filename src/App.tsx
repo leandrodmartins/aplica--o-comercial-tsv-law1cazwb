@@ -15,6 +15,7 @@ import PacoteDetalhes from '@/pages/PacoteDetalhes'
 import RevisaoTecnica from '@/pages/RevisaoTecnica'
 import AcervoTecnico from '@/pages/AcervoTecnico'
 import Equipe from '@/pages/Equipe'
+import Manual from '@/pages/Manual'
 import NotFound from '@/pages/NotFound'
 
 /** Guarda de rota: /equipe só abre para admin/tsv. */
@@ -46,6 +47,7 @@ const App = () => (
             <Route path="/pacote/:id" element={<PacoteDetalhes />} />
             <Route path="/revisao" element={<RevisaoTecnica />} />
             <Route path="/acervo" element={<AcervoTecnico />} />
+            <Route path="/manual" element={<Manual />} />
             <Route
               path="/equipe"
               element={

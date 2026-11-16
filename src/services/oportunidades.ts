@@ -17,17 +17,29 @@ export interface OportunidadeCriar {
 }
 
 export const usuarioService = {
-  /** Lista usuários (equipe) — usado pelo seletor de responsável. */
+  /**
+   * Lista usuários (equipe) — usado pelo seletor de responsável.
+   * Usa a rota dedicada GET /backend/v1/usuarios-equipe/listar (pb_hooks) e não
+   * o CRUD nativo de users: o PocketBase oculta o campo email de registros de
+   * auth na API para quem não é o dono do registro, então via getFullList os
+   * e-mails dos outros usuários chegavam vazios. A rota roda no servidor com
+   * privilégio de privilégio de servidor e devolve { id, email, name, role,
+   * distribuidor, cargo } para todos (exige papel admin/tsv).
+   */
   async listarEquipe(): Promise<AppUser[]> {
-    const recs = await pb.collection('users').getFullList({ sort: 'name' })
-    return recs.map((r: any) => ({
-      id: r.id,
-      email: r.email,
-      name: r.name || '',
-      role: r.role,
-      distribuidor: r.distribuidor || undefined,
-      created: r.created,
-      updated: r.updated,
+    const usuarios = (await pb.send('/backend/v1/usuarios-equipe/listar', {
+      method: 'GET',
+      headers: { Authorization: pb.authStore.token },
+    })) as Array<Record<string, unknown>>
+    return usuarios.map((u) => ({
+      id: String(u.id ?? ''),
+      email: String(u.email ?? ''),
+      name: String(u.name ?? ''),
+      role: u.role as AppUser['role'],
+      distribuidor: u.distribuidor ? String(u.distribuidor) : undefined,
+      cargo: u.cargo ? String(u.cargo) : undefined,
+      created: u.created ? String(u.created) : undefined,
+      updated: u.updated ? String(u.updated) : undefined,
     }))
   },
 }

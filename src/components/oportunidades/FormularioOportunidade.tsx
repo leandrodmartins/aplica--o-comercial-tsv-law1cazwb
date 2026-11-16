@@ -20,7 +20,7 @@ import {
   Sparkles,
   ArrowRight,
 } from 'lucide-react'
-import { OportunidadeSegmento } from '@/types/tsv'
+import { AppUser, OportunidadeSegmento } from '@/types/tsv'
 
 export interface FormLead {
   empresa: string
@@ -55,7 +55,7 @@ export function FormularioOportunidade({
   form: FormLead
   setField: <K extends keyof FormLead>(campo: K, valor: FormLead[K]) => void
   isTSV: boolean
-  equipe: { id: string; name: string; role: string; distribuidora?: string }[]
+  equipe: AppUser[]
   responsavelId: string
   setResponsavelId: (v: string) => void
   proximaAcao: string
@@ -184,7 +184,15 @@ export function FormularioOportunidade({
               <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
                 {equipe.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
-                    {u.name} ({u.role === 'tsv' ? 'TSV' : u.distribuidora || 'Distribuidor'})
+                    {u.name} — {u.email} (
+                    {u.role === 'tsv'
+                      ? 'TSV'
+                      : u.role === 'admin'
+                        ? 'Admin'
+                        : u.role === 'revisor'
+                          ? 'Revisor'
+                          : u.distribuidor || 'Distribuidor'}
+                    )
                   </SelectItem>
                 ))}
               </SelectContent>

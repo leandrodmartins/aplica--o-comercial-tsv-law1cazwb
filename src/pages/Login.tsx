@@ -88,6 +88,10 @@ export default function Login() {
     }
   }
 
+  // Senhas das contas de demonstração (semeadas nas migrações 0004/0009),
+  // exibidas nos cartões de perfil para facilitar o teste do piloto.
+  const SENHA_DEMO = 'Skip@Pass'
+
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden">
       {/* Decorative background grid and glow */}
@@ -296,6 +300,9 @@ export default function Login() {
                         <span className="text-[11px] text-slate-400 truncate w-full">
                           Vê todas as oportunidades
                         </span>
+                        <span className="text-[10px] text-slate-500 mt-0.5">
+                          Senha: {SENHA_DEMO}
+                        </span>
                       </button>
 
                       <button
@@ -309,6 +316,9 @@ export default function Login() {
                         <span className="text-[11px] text-slate-400 truncate w-full">
                           Vê tudo e aprova pacotes
                         </span>
+                        <span className="text-[10px] text-slate-500 mt-0.5">
+                          Senha: {SENHA_DEMO}
+                        </span>
                       </button>
 
                       <button
@@ -321,6 +331,9 @@ export default function Login() {
                         </span>
                         <span className="text-[11px] text-slate-400 truncate w-full">
                           Vê apenas os seus leads
+                        </span>
+                        <span className="text-[10px] text-slate-500 mt-0.5">
+                          Senha: {SENHA_DEMO}
                         </span>
                       </button>
                     </div>

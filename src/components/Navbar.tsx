@@ -20,6 +20,7 @@ import ThemeToggle from '@/components/ThemeToggle'
 import iconeTsv from '@/assets/tsv-4364f.png'
 
 export default function Navbar() {
+  // isTSV só para identidade visual (cor do badge do papel); isAdmin para itens de gestão.
   const { user, logout, isTSV, isAdmin } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
@@ -142,7 +143,7 @@ export default function Navbar() {
               <div>
                 <p className="text-sm font-medium text-white">{user.name}</p>
                 <p className="text-xs text-slate-400">
-                  {user.email} • {isTSV ? 'TSV' : 'Vendedor'}
+                  {user.email} • {ROTULO_PAPEL[user.role] || user.role}
                 </p>
               </div>
               <Button

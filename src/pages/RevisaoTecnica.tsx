@@ -35,7 +35,7 @@ import {
 } from 'lucide-react'
 
 export default function RevisaoTecnica() {
-  const { user, isTSV, podeAprovarPacote } = useAuth()
+  const { user, podeAprovarPacote } = useAuth()
   const [searchParams] = useSearchParams()
   const oportunidadeParam = searchParams.get('oportunidade')
 

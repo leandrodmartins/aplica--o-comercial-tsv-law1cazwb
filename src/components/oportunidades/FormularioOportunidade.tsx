@@ -177,6 +177,8 @@ export function FormularioOportunidade({
             <User className="w-3.5 h-3.5 text-amber-400" /> Vendedor / Responsável *
           </Label>
           {isTSV && equipe.length > 0 ? (
+            // isTSV aqui significa "gestor da operação" (chega como isAdmin da página:
+            // admin e tsv escolhem o responsável; vendedor vê o campo travado).
             <Select value={responsavelId} onValueChange={setResponsavelId}>
               <SelectTrigger className="bg-slate-950/70 border-slate-800 text-slate-200 text-xs">
                 <SelectValue placeholder="Selecione o vendedor" />

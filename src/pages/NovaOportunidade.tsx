@@ -29,7 +29,7 @@ const FORM_INICIAL: FormLead = {
 }
 
 export default function NovaOportunidade() {
-  const { user, isTSV } = useAuth()
+  const { user, isAdmin } = useAuth()
   const navigate = useNavigate()
 
   const [etapa, setEtapa] = useState<'email' | 'manual' | 'formulario'>('email')
@@ -196,7 +196,7 @@ export default function NovaOportunidade() {
               <FormularioOportunidade
                 form={form}
                 setField={setField}
-                isTSV={isTSV}
+                isTSV={isAdmin}
                 equipe={equipe}
                 responsavelId={responsavelId}
                 setResponsavelId={setResponsavelId}

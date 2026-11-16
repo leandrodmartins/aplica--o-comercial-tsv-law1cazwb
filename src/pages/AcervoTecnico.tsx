@@ -53,7 +53,8 @@ const CATEGORIA_LABEL: Record<AcervoCategoria, string> = {
 }
 
 export default function AcervoTecnico() {
-  const { isTSV } = useAuth()
+  // Gestor da operação (admin ou tsv): envia e exclui documentos do acervo.
+  const { isAdmin } = useAuth()
   const [itens, setItens] = useState<AcervoTecnicoItem[]>([])
   const [loading, setLoading] = useState(true)
   const [busca, setBusca] = useState('')
@@ -180,7 +181,7 @@ export default function AcervoTecnico() {
           </p>
         </div>
 
-        {isTSV && (
+        {isAdmin && (
           <Dialog open={modalOpen} onOpenChange={setModalOpen}>
             <DialogTrigger asChild>
               <Button className="bg-blue-600 hover:bg-blue-500 text-white">
@@ -319,7 +320,7 @@ export default function AcervoTecnico() {
                       </a>
                     </Button>
                   )}
-                  {isTSV && (
+                  {isAdmin && (
                     <Button
                       size="sm"
                       variant="ghost"

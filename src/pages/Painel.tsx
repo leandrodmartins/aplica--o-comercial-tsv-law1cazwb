@@ -31,7 +31,8 @@ import {
 } from 'lucide-react'
 
 export default function Painel() {
-  const { user, isTSV } = useAuth()
+  // Gestor da operação (admin ou tsv): vê todos os leads e atalho de revisão.
+  const { user, isAdmin } = useAuth()
   /** Papéis sem isolamento veem tudo; vendedor (e qualquer outro) filtra pelo seu distribuidor. */
   const semIsolamento = PAPEIS_SEM_ISOLAMENTO.includes(user?.role as UserRole)
   const distribuidorFiltro = semIsolamento ? undefined : user?.distribuidor
@@ -133,7 +134,7 @@ export default function Painel() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-semibold uppercase tracking-wider text-blue-400 bg-blue-950/60 px-2.5 py-0.5 rounded-full border border-blue-800/40">
-              {isTSV
+              {isAdmin
                 ? 'Visão Geral TSV (Todos os Leads)'
                 : `Visão do Distribuidor (${user?.distribuidor || 'Meus Leads'})`}
             </span>
@@ -347,7 +348,7 @@ export default function Painel() {
                       </Link>
                     </Button>
 
-                    {isTSV && op.estado === 'em_revisao' && (
+                    {isAdmin && op.estado === 'em_revisao' && (
                       <Button
                         asChild
                         variant="outline"

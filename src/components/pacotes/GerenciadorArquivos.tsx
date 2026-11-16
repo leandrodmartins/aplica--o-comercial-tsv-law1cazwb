@@ -77,7 +77,8 @@ export default function GerenciadorArquivos({
   gerandoPptx,
   versaoArquivos = 0,
 }: Props) {
-  const { user, isTSV } = useAuth()
+  // Gestor da operação (admin ou tsv): gera .pptx, envia e exclui arquivos do pacote.
+  const { user, isAdmin } = useAuth()
   const [arquivos, setArquivos] = useState<PacoteArquivo[]>([])
   const [carregando, setCarregando] = useState(true)
   const [enviando, setEnviando] = useState(false)
@@ -160,7 +161,7 @@ export default function GerenciadorArquivos({
             Arquivos da Apresentação
           </span>
           <span className="flex items-center gap-2 flex-wrap">
-            {isTSV && onGerarPptx && (
+            {isAdmin && onGerarPptx && (
               <Button
                 size="sm"
                 variant="outline"
@@ -176,7 +177,7 @@ export default function GerenciadorArquivos({
                 {gerandoPptx ? 'Gerando .pptx...' : 'Gerar .pptx (IA)'}
               </Button>
             )}
-            {isTSV && (
+            {isAdmin && (
               <Button
                 size="sm"
                 onClick={() => inputRef.current?.click()}
@@ -201,7 +202,7 @@ export default function GerenciadorArquivos({
           </span>
         </CardTitle>
         <CardDescription className="text-xs text-slate-400">
-          {isTSV
+          {isAdmin
             ? 'Gestor de arquivos do pacote: envie apresentações, documentos, planilhas e imagens (até 50 MB). O vendedor pode visualizar e baixar.'
             : 'Arquivos disponibilizados pela TSV. Você pode visualizar e baixar cada um deles.'}
         </CardDescription>
@@ -221,7 +222,7 @@ export default function GerenciadorArquivos({
           </div>
         ) : arquivos.length === 0 ? (
           <div className="py-10 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-lg">
-            {isTSV
+            {isAdmin
               ? 'Nenhum arquivo enviado ainda. Use "Enviar arquivo" para adicionar apresentações e documentos.'
               : 'Nenhum arquivo disponibilizado pela TSV ainda.'}
           </div>
@@ -243,7 +244,7 @@ export default function GerenciadorArquivos({
                   </p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  {isTSV && (
+                  {isAdmin && (
                     <Button
                       size="icon"
                       variant="ghost"
@@ -274,7 +275,7 @@ export default function GerenciadorArquivos({
           </div>
         )}
 
-        {isTSV && (
+        {isAdmin && (
           <p className="text-[10px] text-slate-600 pt-1">
             Formatos aceitos: pptx, ppt, pdf, docx, xlsx, doc, xls, jpg, png, webp, gif — até{' '}
             {formatarTamanho(TAMANHO_MAXIMO)}.

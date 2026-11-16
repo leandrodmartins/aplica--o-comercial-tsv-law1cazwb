@@ -24,9 +24,11 @@ export interface AppUser {
 
 /**
  * Estados da oportunidade conforme o PRD (MVP):
- * novo_lead → em_preparacao → em_revisao → aprovado → enviado → ganho/perdido.
+ * rascunho (estado inicial na coleção) → em_revisao → aprovado → enviado;
+ * novo_lead/em_preparacao/ganho/perdido são legados de versões anteriores.
  */
 export type OportunidadeEstado =
+  | 'rascunho'
   | 'novo_lead'
   | 'em_preparacao'
   | 'em_revisao'
@@ -36,6 +38,7 @@ export type OportunidadeEstado =
   | 'perdido'
 
 export const ROTULO_ESTADO: Record<OportunidadeEstado, string> = {
+  rascunho: 'Rascunho',
   novo_lead: 'Novo Lead',
   em_preparacao: 'Em Preparação',
   em_revisao: 'Em Revisão',
@@ -46,6 +49,7 @@ export const ROTULO_ESTADO: Record<OportunidadeEstado, string> = {
 }
 
 export const ESTADOS_ATIVOS: OportunidadeEstado[] = [
+  'rascunho',
   'novo_lead',
   'em_preparacao',
   'em_revisao',

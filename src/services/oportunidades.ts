@@ -80,8 +80,9 @@ export const oportunidadeService = {
       mensagem_original: dados.mensagem_original || '',
       aplicacao: dados.aplicacao,
       segmento: dados.segmento || 'outro',
-      estado: dados.estado || 'novo_lead',
-      proxima_acao: dados.proxima_acao || '',
+      // 'rascunho' é o estado inicial aceito pela coleção (novo_lead não existe mais no select).
+      estado: dados.estado || 'rascunho',
+      proxima_acao: dados.proxima_acao?.trim() || 'Gerar pacote de preparação',
       responsavel: dados.responsavel || pb.authStore.record?.id,
       distribuidor: pb.authStore.record?.distribuidor || '',
     })

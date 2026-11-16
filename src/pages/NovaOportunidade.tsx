@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from '@/hooks/use-toast'
+import { getErrorMessage } from '@/lib/pocketbase/errors'
 import { useAuth } from '@/context/AuthContext'
 import { oportunidadeService, usuarioService } from '@/services/oportunidades'
 import { authService } from '@/services/auth'
@@ -10,6 +12,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { EtapaColarEmail } from '@/components/oportunidades/EtapaColarEmail'
 import { FormularioOportunidade, FormLead } from '@/components/oportunidades/FormularioOportunidade'
 import { Sparkles } from 'lucide-react'
+
+/** Mensagem clara em PT-BR para falha no salvamento (o detalhe técnico vai no toast). */
+const MSG_FALHA_SALVAR =
+  'Não foi possível salvar a oportunidade. Verifique os campos e tente novamente.'
 
 const FORM_INICIAL: FormLead = {
   empresa: '',
@@ -137,8 +143,15 @@ export default function NovaOportunidade() {
       }
 
       navigate(`/pacote/${novaOp.id}`)
-    } catch (err: any) {
-      setError(err?.message || 'Falha ao cadastrar oportunidade')
+    } catch (err) {
+      // O PocketBase devolve o erro cru em inglês ("Failed to create record.");
+      // exibimos a mensagem clara em PT-BR, com o detalhe técnico entre parênteses.
+      toast({
+        title: 'Falha ao criar oportunidade manualmente',
+        description: `${MSG_FALHA_SALVAR} (${getErrorMessage(err)})`,
+        variant: 'destructive',
+      })
+      setError(MSG_FALHA_SALVAR)
     } finally {
       setLoading(false)
     }

@@ -41,10 +41,18 @@ routerAdd(
 
       let markdown = ''
       try {
-        const res = $documents.toMarkdown(arquivo)
-        markdown = String(res?.markdown || res || '')
+        const res = $documents.toMarkdown({ file: arquivo })
+        markdown = String(res?.markdown || '')
       } catch (docErr) {
         console.log('analisar-documento: falha ao converter documento:', docErr)
+        if (docErr && docErr.status === 413) {
+          return e.badRequestError('Arquivo muito grande para a análise (limite do conversor).')
+        }
+        if (docErr && docErr.status === 422) {
+          return e.badRequestError(
+            'Este documento não tem texto selecionável (pode ser um scan/imagem). Envie uma versão com texto ou preencha manualmente.',
+          )
+        }
         return e.badRequestError(
           'Nao foi possivel ler o conteudo deste arquivo. Formatos aceitos: PDF, DOCX, PPTX.',
         )

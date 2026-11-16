@@ -59,8 +59,22 @@ export const iaService = {
       },
     )
     const data = await res.json().catch(() => null)
+    if (res.status === 401) {
+      throw new Error('Sua sessão expirou. Faça login novamente para analisar o documento.')
+    }
+    if (res.status === 403) {
+      throw new Error('Apenas a TSV (ou administrador) pode analisar documentos do acervo.')
+    }
+    if (res.status === 503 || res.status === 502) {
+      throw new Error(
+        data?.error ||
+          'A IA Brigade está indisponível ou sem configuração no momento. Tente novamente ou preencha manualmente.',
+      )
+    }
     if (!res.ok) {
-      throw new Error(data?.error || 'Falha ao analisar o documento com a IA')
+      throw new Error(
+        data?.error || 'Falha ao analisar o documento com a IA Brigade (erro no servidor).',
+      )
     }
     return data
   },

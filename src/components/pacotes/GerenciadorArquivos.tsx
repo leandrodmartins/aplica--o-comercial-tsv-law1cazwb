@@ -68,8 +68,9 @@ interface Props {
 
 /**
  * Gestor de arquivos estilo Google Drive da apresentação do pacote:
- * lista de arquivos com nome/tamanho/data/quem enviou, download para todos
- * e upload restrito ao papel TSV (gestor). Vendedor só baixa.
+ * lista de arquivos com nome/tamanho/data/quem enviou, download para todos,
+ * upload para admin, TSV e revisor técnico. Exclusão e gerar .pptx ficam
+ * com o gestor da operação (admin/tsv). Vendedor só visualiza e baixa.
  */
 export default function GerenciadorArquivos({
   pacoteId,
@@ -77,8 +78,11 @@ export default function GerenciadorArquivos({
   gerandoPptx,
   versaoArquivos = 0,
 }: Props) {
-  // Gestor da operação (admin ou tsv): gera .pptx, envia e exclui arquivos do pacote.
+  // Gestor da operação (admin ou tsv): gera .pptx e exclui arquivos do pacote.
   const { user, isAdmin } = useAuth()
+  // Upload liberado para admin, tsv e revisor técnico (createRule da coleção
+  // pacote_arquivos já aceita os três papéis — migração 0007).
+  const podeEnviar = isAdmin || user?.role === 'revisor'
   const [arquivos, setArquivos] = useState<PacoteArquivo[]>([])
   const [carregando, setCarregando] = useState(true)
   const [enviando, setEnviando] = useState(false)
@@ -177,7 +181,7 @@ export default function GerenciadorArquivos({
                 {gerandoPptx ? 'Gerando .pptx...' : 'Gerar .pptx (IA)'}
               </Button>
             )}
-            {isAdmin && (
+            {podeEnviar && (
               <Button
                 size="sm"
                 onClick={() => inputRef.current?.click()}
@@ -204,7 +208,9 @@ export default function GerenciadorArquivos({
         <CardDescription className="text-xs text-slate-400">
           {isAdmin
             ? 'Gestor de arquivos do pacote: envie apresentações, documentos, planilhas e imagens (até 50 MB). O vendedor pode visualizar e baixar.'
-            : 'Arquivos disponibilizados pela TSV. Você pode visualizar e baixar cada um deles.'}
+            : podeEnviar
+              ? 'Envie apresentações, documentos, planilhas e imagens (até 50 MB). O vendedor pode visualizar e baixar.'
+              : 'Arquivos disponibilizados pela TSV. Você pode visualizar e baixar cada um deles.'}
         </CardDescription>
       </CardHeader>
 
@@ -224,7 +230,9 @@ export default function GerenciadorArquivos({
           <div className="py-10 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-lg">
             {isAdmin
               ? 'Nenhum arquivo enviado ainda. Use "Enviar arquivo" para adicionar apresentações e documentos.'
-              : 'Nenhum arquivo disponibilizado pela TSV ainda.'}
+              : podeEnviar
+                ? 'Nenhum arquivo enviado ainda. Use "Enviar arquivo" para adicionar apresentações e documentos.'
+                : 'Nenhum arquivo disponibilizado pela TSV ainda.'}
           </div>
         ) : (
           <div className="rounded-lg border border-slate-800 overflow-hidden divide-y divide-slate-800/80">
@@ -275,7 +283,7 @@ export default function GerenciadorArquivos({
           </div>
         )}
 
-        {isAdmin && (
+        {podeEnviar && (
           <p className="text-[10px] text-slate-600 pt-1">
             Formatos aceitos: pptx, ppt, pdf, docx, xlsx, doc, xls, jpg, png, webp, gif — até{' '}
             {formatarTamanho(TAMANHO_MAXIMO)}.
